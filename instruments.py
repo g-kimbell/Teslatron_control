@@ -70,6 +70,14 @@ class Sourcemeter(Instrument):
     def set_compliance(self,compliance):
         self.write(f'SOUR:CURR:COMP {compliance:.3f}')
 
+class VSourcemeter(Instrument):
+    def __init__(self,GPIB_address):
+        super().__init__(GPIB_address)
+        self.write('*RST')
+        self.write('*CLS')
+        # TODO check initilaization steps
+    # TODO implement voltage source functionality
+
 class MercuryiPS(Instrument):
     def __init__(self,GPIB_address):
         super().__init__(GPIB_address)
