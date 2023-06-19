@@ -10,6 +10,6 @@ I_B, GPIB::11::INSTR
 Vg_A, GPIB::23::INSTR
 Vg_B, GPIB::24::INSTR
 [Temperature controller]
-iTC, ASRL7::INSTR
+ASRL7::INSTR
 [Magnet Power supply]
-iPS, ASRL8::INSTR
+ASRL8::INSTR
