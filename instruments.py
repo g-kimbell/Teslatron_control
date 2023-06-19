@@ -3,12 +3,13 @@ import time
 import numpy as np
 import logging
 
-rm = pyvisa.ResourceManager()
+
 
 class Instrument():
+    rm = pyvisa.ResourceManager()
     def __init__(self,GPIB_address):
         self.GPIB_address = GPIB_address
-        self.instr = rm.open_resource(GPIB_address)
+        self.instr = self.rm.open_resource(GPIB_address)
         self.instr.write_termination = '\n'
         self.instr.read_termination = '\n'
     def query(self,command):
