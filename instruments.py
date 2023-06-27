@@ -3,15 +3,14 @@ import time
 import numpy as np
 import logging
 
-
-
 class Instrument():
-    rm = pyvisa.ResourceManager()
-    def __init__(self,GPIB_address):
+    def __init__(self,GPIB_address,mock=False):
+        if mock:
+            rm = pyvisa.ResourceManager('mock_instruments.yaml@sim')
+        else:
+            rm = pyvisa.ResourceManager()
         self.GPIB_address = GPIB_address
-        self.instr = self.rm.open_resource(GPIB_address)
-        self.instr.write_termination = '\n'
-        self.instr.read_termination = '\n'
+        self.instr = rm.open_resource(GPIB_address,read_termination='\n',write_termination='\n')
     def query(self,command):
         logging.info(f"Query: {command}")
         response = self.instr.query(command)
@@ -25,16 +24,16 @@ class Instrument():
 
 class Voltmeter(Instrument):
     # this currently works for both keithley 2182A and keysight 34461A
-    def write(self,command):
-        logging.info(f"Write: {command}")
-        self.instr.write(command)
-        logging.info(f"Response: {self.instr.query('SYST:ERR?')}")
-    def __init__(self,GPIB_address):
-        super().__init__(GPIB_address)
+    def __init__(self,GPIB_address,**kwargs):
+        super().__init__(GPIB_address,**kwargs)
         self.write('*RST')
         self.write('*CLS')
         self.write(':SENS:VOLT:RANG:AUTO ON')
         self.write(':SENS:FUNC "VOLT"')
+    def write(self,command):
+        logging.info(f"Write: {command}")
+        self.instr.write(command)
+        logging.info(f"Response: {self.instr.query('SYST:ERR?')}")
     def get_voltage(self):
         return float(self.query(':READ?'))
     def start_voltage_measurement(self):
@@ -43,8 +42,8 @@ class Voltmeter(Instrument):
         return float(self.query(':FETC?'))
 
 class Sourcemeter(Instrument):
-    def __init__(self,GPIB_address):
-        super().__init__(GPIB_address)
+    def __init__(self,GPIB_address,**kwargs):
+        super().__init__(GPIB_address,**kwargs)
         self.write('*RST')
         self.write('*CLS')
         self.write(':SOUR:CURR:RANG:AUTO ON')
@@ -72,16 +71,16 @@ class Sourcemeter(Instrument):
         self.write(f'SOUR:CURR:COMP {compliance:.3f}')
 
 class VSourcemeter(Instrument):
-    def __init__(self,GPIB_address):
-        super().__init__(GPIB_address)
+    def __init__(self,GPIB_address,**kwargs):
+        super().__init__(GPIB_address,**kwargs)
         self.write('*RST')
         self.write('*CLS')
         # TODO check initilaization steps
     # TODO implement voltage source functionality
 
 class MercuryiPS(Instrument):
-    def __init__(self,GPIB_address):
-        super().__init__(GPIB_address)
+    def __init__(self,GPIB_address,**kwargs):
+        super().__init__(GPIB_address,**kwargs)
     def get_config(self):
         return self.instr.query('READ:SYS:CAT')
 
@@ -93,8 +92,8 @@ class MercuryiTC(Instrument):
     # DB8.T1 Probe
     # MB0.H1 Heater
     # MB1.T1 VTI
-    def __init__(self,GPIB_address):
-        super().__init__(GPIB_address)
+    def __init__(self,GPIB_address,**kwargs):
+        super().__init__(GPIB_address,**kwargs)
     def query(self,command):
         logging.info(f'Query: {command}')
         response = self.instr.query(command)
