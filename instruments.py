@@ -42,6 +42,7 @@ class Voltmeter(Instrument):
         return float(self.query(':FETC?'))
 
 class Sourcemeter(Instrument):
+    # works with Keithley 6221
     def __init__(self,GPIB_address,**kwargs):
         super().__init__(GPIB_address,**kwargs)
         self.write('*RST')
@@ -68,15 +69,44 @@ class Sourcemeter(Instrument):
     def turn_off(self):
         self.write('OUTP OFF')
     def set_compliance(self,compliance):
-        self.write(f'SOUR:CURR:COMP {compliance:.3f}')
+        self.write(f'SOUR:CURR:COMP {compliance:.6f}')
 
 class VSourcemeter(Instrument):
+    # works with Keithley 2410
     def __init__(self,GPIB_address,**kwargs):
         super().__init__(GPIB_address,**kwargs)
         self.write('*RST')
         self.write('*CLS')
-        # TODO check initilaization steps
-    # TODO implement voltage source functionality
+        self.write(':FORM:ELEM VOLT,CURR')
+        self.write(':SOUR:FUNC VOLT')
+        self.write(':SOUR:VOLT:MODE FIXED')
+        self.write(':SOUR:VOLT:RANG:AUTO ON')
+        self.write(':SOUR:VOLT 0.0')
+        self.write(':SENS:FUNC "CURR"')
+        self.write(':SENS:CURR:PROT 1E-7')
+        self.write(':SENS:CURR:RANG:AUTO ON')
+        self.write(':OUTP OFF')
+    def write(self,command):
+        logging.info(f"Write: {command}")
+        self.instr.write(command)
+        logging.info(f"Response: {self.instr.query('SYST:ERR?')}")
+    def turn_on(self):
+        self.write('OUTP ON')
+    def turn_off(self):
+        self.write('OUTP OFF')
+    def set_voltage(self,voltage):
+        self.write(f'SOUR:VOLT {voltage:.6f}')
+    def get_voltage_and_Ileak(self):
+        reading = [float(value) for value in self.query(':READ?').split(',')]
+        return reading[0],reading[1]
+    def get_voltage(self):
+        V,_ = self.get_leak_and_voltage()
+        return V
+    def get_Ileak(self):
+        _,Ileak = self.get_leak_and_voltage()
+        return Ileak
+    def set_compliance(self,compliance):
+        self.write(f'SENS:CURR:PROT {compliance:.6f}')
 
 class MercuryiPS(Instrument):
     def __init__(self,GPIB_address,**kwargs):
@@ -198,11 +228,15 @@ class MercuryiTC(Instrument):
         response = self.query('READ:DEV:DB5.P1:PRES:SIG:PRES?')
         P = float(response.split(':')[-1][:-2])
         return P
-    def get_pressure_setpoint(self): # This doesn't work and I don't know why. It uses the code given in the manual.
+    def get_pressure_setpoint(self):
+        # This doesn't work, I think it is a bug with the controller board.
+        # It uses the code given in the manual. Other programs (LabView, MATLAB) also can't access pressure commands.
         response = self.query('READ:DEV:DB5.P1:PRES:LOOP:TSET?')
         P = float(response.split(':')[-1][:-2])
         return P
-    def set_pressure(self,pressure): # This doesn't work and I don't know why. It uses the code given in the manual.
+    def set_pressure(self,pressure):
+        # This doesn't work, I think it is a bug with the controller board.
+        # It uses the code given in the manual. Other programs (LabView, MATLAB) also can't access pressure commands.
         self.query(f'SET:DEV:DB5.P1:PRES:LOOP:ENAB:ON')#turn on loop
         self.query(f'SET:DEV:DB5.P1:PRES:LOOP:TSET:{pressure}')
         return
