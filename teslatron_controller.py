@@ -27,7 +27,7 @@ class InitialiseWindow(QtWidgets.QWidget):
                     continue
                 row=[]
                 for j in range(self.columnCount()):
-                    row.append(self.item(i,j).text())
+                    row.append(self.item(i,j).text().strip())
                 data.append(row)
             return data
 
@@ -113,7 +113,6 @@ class InitialiseWindow(QtWidgets.QWidget):
 
     def init_instruments(self):
         global voltmeters, sourcemeters, Vsourcemeters, iTC, iPS
-
         voltmeters = {}
         for row in self.voltmeter_table.get_data():
             voltmeters[row[0]] = Voltmeter(row[1])
@@ -123,15 +122,14 @@ class InitialiseWindow(QtWidgets.QWidget):
         Vsourcemeters = {}
         for row in self.Vsourcemeter_table.get_data():
             Vsourcemeters[row[0]] = VSourcemeter(row[1])
-        iTC = MercuryiTC(self.iTC_COM.text())
-        iPS = MercuryiPS(self.iPS_COM.text())
+        if self.iTC_COM.text():
+            iTC = MercuryiTC(self.iTC_COM.text())
+        if self.iPS_COM.text():
+            iPS = MercuryiPS(self.iPS_COM.text())
 
     def start_GUI(self):
         window.show()
         self.close()
-
-global threadpool
-threadpool= QThreadPool()
 
 class WorkerSignals(QtCore.QObject): # class used to send signals to main GUI thread
     result = QtCore.pyqtSignal(list)
@@ -144,22 +142,32 @@ class Data_Collector(QtCore.QRunnable): # thread that collects the data
         self.filename = window.filename
         self.loop_counter = 0
 
+
     @QtCore.pyqtSlot() # this is the function that is called when the thread is started
     def run(self):
         while window.measuring == True:
             self.loop_counter += 1
             # Get all the data
-            data = []
+            data = {}
             t = time.time()
-            data.append(t)
-            for voltmeter in voltmeters:
-                data.append(voltmeter.get_voltage())
-            for sourcemeter in sourcemeters:
-                data.append(sourcemeter.get_current())
-            for Vsourcemeter in Vsourcemeters:
-                data.append(Vsourcemeter.get_voltage())
-            data.append(iTC.get_temperature())
-            data.append(iPS.get_current())
+            data["Time"] = t
+            for name,voltmeter in voltmeters.items():
+                voltmeter.start_voltage_measurement()
+            for name,voltmeter in voltmeters.items():
+                data[name] = voltmeter.get_voltage_measurement()
+            for name,sourcemeter in sourcemeters.items():
+                data[name] = sourcemeter.get_current()
+            for name,Vsourcemeter in Vsourcemeters.items():
+                data[name] = Vsourcemeter.get_voltage()
+            data["T_probe"] = iTC.get_probe_temp()
+            data["T_probe_setpoint"] = iTC.get_probe_setpoint()
+            data["T_probe_ramp_rate"] = iTC.get_probe_ramp_rate()
+            data["T_probe_heater"] = iTC.get_probe_heater()
+            data["T_VTI"] = iTC.get_VTI_temp()
+            data["T_VTI_setpoint"] = iTC.get_VTI_setpoint()
+            data["T_VTI_ramp_rate"] = iTC.get_VTI_ramp_rate()
+            data["T_VTI_heater"] = iTC.get_VTI_heater()
+
             time.sleep(0.5)
             self.signals.result.emit(data)
         self.signals.finished.emit()
@@ -220,6 +228,9 @@ class MainWindow(QtWidgets.QMainWindow):
         #TODO allow the user to run a script with various commands e.g. sweep field and measure etc.
         pass
 
+
+global threadpool
+threadpool= QThreadPool()
 app = QtWidgets.QApplication([])
 window = MainWindow()
 init_window = InitialiseWindow()
