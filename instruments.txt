@@ -1,14 +1,14 @@
 [Voltmeter]
-V_A, GPIB::6::INSTR
-V_B, GPIB::12::INSTR
-V_C, GPIB::22::INSTR
-V_D, GPIB::25::INSTR
+V_A, GPIB0::6::INSTR
+V_B, GPIB0::12::INSTR
+V_C, GPIB0::22::INSTR
+V_D, GPIB0::25::INSTR
 [Current source]
-I_A, GPIB::5::INSTR
-I_B, GPIB::11::INSTR
+I_A, GPIB0::5::INSTR
+I_B, GPIB0::11::INSTR
 [Voltage source]
-Vg_A, GPIB::23::INSTR
-Vg_B, GPIB::24::INSTR
+Vg_A, GPIB0::23::INSTR
+Vg_B, GPIB0::24::INSTR
 [Temperature controller]
 ASRL7::INSTR
 [Magnet Power supply]
