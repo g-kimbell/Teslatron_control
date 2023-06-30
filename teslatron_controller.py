@@ -196,24 +196,28 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.start_button = QtWidgets.QPushButton('Start')
         self.start_button.clicked.connect(self.start)
-        self.layout.addWidget(self.start_button,0,0)
+        self.layout.addWidget(self.start_button,1,1,1,1)
 
         self.stop_button = QtWidgets.QPushButton('Stop')
         self.stop_button.clicked.connect(self.stop)
-        self.layout.addWidget(self.stop_button,0,1)
+        self.layout.addWidget(self.stop_button,1,2,1,1)
 
         self.run_script_button = QtWidgets.QPushButton('Run script')
         self.run_script_button.clicked.connect(self.run_script)
-        self.layout.addWidget(self.run_script_button,0,2)
+        self.layout.addWidget(self.run_script_button,1,3,1,1)
 
         self.plot = pg.PlotWidget()
-        self.layout.addWidget(self.plot,1,0,1,3)
+        self.layout.addWidget(self.plot,0,1,1,3)
+
+        self.data_table = QtWidgets.QTableWidget()
+        self.layout.addWidget(self.data_table,0,0,1,1)
 
     def start(self):
         self.start_time = time.time()
         self.measuring = True
         self.worker = Data_Collector()
         self.worker.signals.result.connect(self.update_plot)
+        self.worker.signals.result.connect(self.update_data)
         self.worker.signals.finished.connect(self.finished)
         QtCore.QThreadPool.globalInstance().start(self.worker)
 
@@ -232,6 +236,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self.plot.plot(self.plot_data["Time"],self.plot_data["V_A"])
     def finished(self):
         logging.info('Finished measurement')
+    def update_data(self,data):
+        self.data_table.setRowCount(len(data))
+        self.data_table.setColumnCount(2)
+        for i, (key, value) in enumerate(data.items()):
+            self.data_table.setItem(i,0,QtWidgets.QTableWidgetItem(key))
+            self.data_table.setItem(i,1,QtWidgets.QTableWidgetItem(str(value)))
 
     def run_script(self):
         #TODO allow the user to run a script with various commands e.g. sweep field and measure etc.
