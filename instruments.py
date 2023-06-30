@@ -7,8 +7,10 @@ class Instrument():
     def __init__(self,GPIB_address,mock=False):
         if mock:
             rm = pyvisa.ResourceManager('mock_instruments.yaml@sim')
+            print(f"Mocking {GPIB_address}")
         else:
             rm = pyvisa.ResourceManager()
+            print(f"Connecting to {GPIB_address}")
         self.GPIB_address = GPIB_address
         self.instr = rm.open_resource(GPIB_address,read_termination='\n',write_termination='\n')
     def query(self,command):
@@ -68,6 +70,8 @@ class Sourcemeter(Instrument):
         self.write('OUTP ON')
     def turn_off(self):
         self.write('OUTP OFF')
+    def get_complicance(self):
+        return float(self.query('SOUR:CURR:COMP?'))
     def set_compliance(self,compliance):
         self.write(f'SOUR:CURR:COMP {compliance:.6f}')
 
@@ -100,10 +104,10 @@ class VSourcemeter(Instrument):
         reading = [float(value) for value in self.query(':READ?').split(',')]
         return reading[0],reading[1]
     def get_voltage(self):
-        V,_ = self.get_leak_and_voltage()
+        V,_ = self.get_voltage_and_Ileak()
         return V
     def get_Ileak(self):
-        _,Ileak = self.get_leak_and_voltage()
+        _,Ileak = self.get_voltage_and_Ileak()
         return Ileak
     def set_compliance(self,compliance):
         self.write(f'SENS:CURR:PROT {compliance:.6f}')
