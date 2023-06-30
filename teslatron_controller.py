@@ -4,6 +4,7 @@ from PyQt5.QtCore import QThreadPool
 from instruments import Voltmeter, Sourcemeter, VSourcemeter, MercuryiTC, MercuryiPS
 import pyqtgraph as pg
 import logging
+import pandas as pd
 
 class InitialiseWindow(QtWidgets.QWidget):
     def __init__(self):
@@ -23,7 +24,7 @@ class InitialiseWindow(QtWidgets.QWidget):
             data=[]
             for i in range(self.rowCount()):
                 # ignore empty rows
-                if self.item(i,0) is None:
+                if (self.item(i,0) is None or self.item(i,0).text().strip() == ''):
                     continue
                 row=[]
                 for j in range(self.columnCount()):
@@ -113,6 +114,7 @@ class InitialiseWindow(QtWidgets.QWidget):
 
     def init_instruments(self):
         global voltmeters, sourcemeters, Vsourcemeters, iTC, iPS
+
         voltmeters = {}
         for row in self.voltmeter_table.get_data():
             voltmeters[row[0]] = Voltmeter(row[1])
@@ -124,15 +126,19 @@ class InitialiseWindow(QtWidgets.QWidget):
             Vsourcemeters[row[0]] = VSourcemeter(row[1])
         if self.iTC_COM.text():
             iTC = MercuryiTC(self.iTC_COM.text())
+        else:
+            iTC = None
         if self.iPS_COM.text():
             iPS = MercuryiPS(self.iPS_COM.text())
+        else:
+            iPS = None
 
     def start_GUI(self):
         window.show()
         self.close()
 
 class WorkerSignals(QtCore.QObject): # class used to send signals to main GUI thread
-    result = QtCore.pyqtSignal(list)
+    result = QtCore.pyqtSignal(dict)
     finished = QtCore.pyqtSignal()
 
 class Data_Collector(QtCore.QRunnable): # thread that collects the data
@@ -141,7 +147,6 @@ class Data_Collector(QtCore.QRunnable): # thread that collects the data
         self.signals = WorkerSignals()
         self.filename = window.filename
         self.loop_counter = 0
-
 
     @QtCore.pyqtSlot() # this is the function that is called when the thread is started
     def run(self):
@@ -153,22 +158,23 @@ class Data_Collector(QtCore.QRunnable): # thread that collects the data
             data["Time"] = t
             for name,voltmeter in voltmeters.items():
                 voltmeter.start_voltage_measurement()
-            for name,voltmeter in voltmeters.items():
-                data[name] = voltmeter.get_voltage_measurement()
             for name,sourcemeter in sourcemeters.items():
                 data[name] = sourcemeter.get_current()
             for name,Vsourcemeter in Vsourcemeters.items():
                 data[name] = Vsourcemeter.get_voltage()
-            data["T_probe"] = iTC.get_probe_temp()
-            data["T_probe_setpoint"] = iTC.get_probe_setpoint()
-            data["T_probe_ramp_rate"] = iTC.get_probe_ramp_rate()
-            data["T_probe_heater"] = iTC.get_probe_heater()
-            data["T_VTI"] = iTC.get_VTI_temp()
-            data["T_VTI_setpoint"] = iTC.get_VTI_setpoint()
-            data["T_VTI_ramp_rate"] = iTC.get_VTI_ramp_rate()
-            data["T_VTI_heater"] = iTC.get_VTI_heater()
-
-            time.sleep(0.5)
+            if iTC:
+                data["T_probe"] = iTC.get_probe_temp()
+                data["T_probe_setpoint"] = iTC.get_probe_setpoint()
+                data["T_probe_ramp_rate"] = iTC.get_probe_ramp_rate()
+                data["T_probe_heater"] = iTC.get_probe_heater()
+                data["T_VTI"] = iTC.get_VTI_temp()
+                data["T_VTI_setpoint"] = iTC.get_VTI_setpoint()
+                data["T_VTI_ramp_rate"] = iTC.get_VTI_ramp_rate()
+                data["T_VTI_heater"] = iTC.get_VTI_heater()
+            # add iPS functionality
+            for name,voltmeter in voltmeters.items():
+                data[name] = voltmeter.get_voltage_measurement()
+            time.sleep(0.001)
             self.signals.result.emit(data)
         self.signals.finished.emit()
 
@@ -179,7 +185,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.setGeometry(50,50,800,600)
         self.measuring = False
         self.filename = 'test_data.txt'
-        self.plot_data = []
+        self.plot_data = pd.DataFrame()
         self.initUI()
 
     def initUI(self):
@@ -215,12 +221,15 @@ class MainWindow(QtWidgets.QMainWindow):
         self.measuring = False
 
     def update_plot(self,data):
+        print(data)
+        if self.plot_data.empty:
+            self.plot_data = pd.DataFrame(data, index=[0])
+        else:
+            self.plot_data = pd.concat([self.plot_data, pd.DataFrame([data])], ignore_index=True)
+        print(self.plot_data)
         #TODO let the user choose which data to plot as x and y
         #TODO allow the user to scroll, pan, zoom etc
-        self.plot_data.append(data)
-        for i in range(len(data)-1):
-            self.plot.plot([x[0]-self.start_time for x in self.plot_data],[x[i+1] for x in self.plot_data],pen=(i,len(data)-1),symbol='o')
-
+        self.plot.plot(self.plot_data["Time"],self.plot_data["V_A"])
     def finished(self):
         logging.info('Finished measurement')
 
