@@ -101,8 +101,12 @@ class VSourcemeter(Instrument):
     def set_voltage(self,voltage):
         self.write(f'SOUR:VOLT {voltage:.6f}')
     def get_voltage_and_Ileak(self):
-        reading = [float(value) for value in self.query(':READ?').split(',')]
-        return reading[0],reading[1]
+        # check whether output is on
+        if int(self.query('OUTP?')) == 1:
+            reading = [float(value) for value in self.query(':READ?').split(',')]
+            return reading[0],reading[1]
+        else:
+            return np.nan,np.nan
     def get_voltage(self):
         V,_ = self.get_voltage_and_Ileak()
         return V
