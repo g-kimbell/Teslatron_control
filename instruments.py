@@ -116,22 +116,7 @@ class VSourcemeter(Instrument):
     def set_compliance(self,compliance):
         self.write(f'SENS:CURR:PROT {compliance:.6f}')
 
-class MercuryiPS(Instrument):
-    def __init__(self,GPIB_address,**kwargs):
-        super().__init__(GPIB_address,**kwargs)
-    def get_config(self):
-        return self.instr.query('READ:SYS:CAT')
-
-class MercuryiTC(Instrument):
-    # Daughter board unique identifiers for reference
-    # DB3.H1 Heater
-    # DB4.G1 Aux
-    # DB5.P1 Pressure
-    # DB8.T1 Probe
-    # MB0.H1 Heater
-    # MB1.T1 VTI
-    def __init__(self,GPIB_address,**kwargs):
-        super().__init__(GPIB_address,**kwargs)
+class Mercury(Instrument):
     def query(self,command):
         logging.info(f'Query: {command}')
         response = self.instr.query(command)
@@ -150,7 +135,22 @@ class MercuryiTC(Instrument):
             logging.error(f'Invalid command: {command}')
     def get_config(self):
         return self.query('READ:SYS:CAT')
-    
+
+
+class MercuryiPS(Mercury):
+    def get_voltage(self):
+        response = self.query('READ:DEV:GRPZ:PSU:SIG:VOLT?')
+        V = float(response.split(':')[-1][:-1])
+        return V
+
+class MercuryiTC(Mercury):
+    # Daughter board unique identifiers for reference
+    # DB3.H1 Heater
+    # DB4.G1 Aux
+    # DB5.P1 Pressure
+    # DB8.T1 Probe
+    # MB0.H1 Heater
+    # MB1.T1 VTI
     ### Probe control ###
     def get_probe_temp(self):
         response=self.query('READ:DEV:MB0.H1:TEMP:SIG:TEMP?')
