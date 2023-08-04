@@ -174,10 +174,16 @@ class MercuryiPS(Mercury):
                 self.query('SET:DEV:GRPZ:PSU:ACTN:RTOS')
             case 2:
                 self.query('SET:DEV:GRPZ:PSU:ACTN:HOLD')
-    def set_field(self,B): # in T
-        self.query('SET:DEV:GRPZ:PSU:SIG:FSET:{B}')
-    def set_rate(self,rate): # in T/min
-        self.query('SET:DEV:GRPZ:PSU:SIG:RFST:{rate}')
+    def set_field(self,B,rate): # in T
+        self.set_output(2)
+        self.query(f'SET:DEV:GRPZ:PSU:SIG:RFST:{rate}')
+        time.sleep(0.1)
+        self.query(f'SET:DEV:GRPZ:PSU:SIG:FSET:{B}')
+        time.sleep(0.1)
+        self.set_output(1)
+
+    def reached_setpoint(self,tol=0.001): # True or False
+        return abs(self.get_set_field()-self.get_field())<tol
     
     ### Temperature getters ###
     def get_magnet_T(self):
