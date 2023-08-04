@@ -158,6 +158,8 @@ class MercuryiPS(Mercury):
         response = self.query('READ:DEV:GRPZ:PSU:SIG:FSET?')
         B = float(response.split(':')[-1][:-1])
         return B
+    def get_setpoint_reached(self,tol=0.001): # True or False
+        return abs(self.get_set_field()-self.get_field())<tol
     
     ### Magnet setters ###
     def set_switch_heater(self,state): # 0 = off, 1 = on
@@ -181,9 +183,6 @@ class MercuryiPS(Mercury):
         self.query(f'SET:DEV:GRPZ:PSU:SIG:FSET:{B}')
         time.sleep(0.1)
         self.set_output(1)
-
-    def reached_setpoint(self,tol=0.001): # True or False
-        return abs(self.get_set_field()-self.get_field())<tol
     
     ### Temperature getters ###
     def get_magnet_T(self):
