@@ -136,12 +136,62 @@ class Mercury(Instrument):
     def get_config(self):
         return self.query('READ:SYS:CAT')
 
-
 class MercuryiPS(Mercury):
-    def get_voltage(self):
+    ### Magnet getters ###
+    def get_voltage(self): # in V
         response = self.query('READ:DEV:GRPZ:PSU:SIG:VOLT?')
         V = float(response.split(':')[-1][:-1])
         return V
+    def get_current(self): # in A
+        response = self.query('READ:DEV:GRPZ:PSU:SIG:CURR?')
+        I = float(response.split(':')[-1][:-1])
+        return I
+    def get_field(self): # in T
+        response = self.query('READ:DEV:GRPZ:PSU:SIG:FLD?')
+        B = float(response.split(':')[-1][:-1])
+        return B
+    def get_sweep_rate(self): # in T/min
+        response = self.query('READ:DEV:GRPZ:PSU:SIG:RFLD?')
+        rate = float(response.split(":")[-1][:-5])
+        return rate
+    def get_set_field(self): # in T
+        response = self.query('READ:DEV:GRPZ:PSU:SIG:FSET?')
+        B = float(response.split(':')[-1][:-1])
+        return B
+    
+    ### Magnet setters ###
+    def set_switch_heater(self,state): # 0 = off, 1 = on
+        match state:
+            case 0:
+                self.query('SET:DEV:GRPZ:PSU:SIG:SWHN:ON')
+            case 1:
+                self.query('SET:DEV:GRPZ:PSU:SIG:SWHN:OFF')
+    def set_output(self,state): # 0 = to zero, 1 = to set, 2 = hold
+        match state:
+            case 0:
+                self.query('SET:DEV:GRPZ:PSU:ACTN:RTOZ')
+            case 1:
+                self.query('SET:DEV:GRPZ:PSU:ACTN:RTOS')
+            case 2:
+                self.query('SET:DEV:GRPZ:PSU:ACTN:HOLD')
+    def set_field(self,B): # in T
+        self.query('SET:DEV:GRPZ:PSU:SIG:FSET:{B}')
+    def set_rate(self,rate): # in T/min
+        self.query('SET:DEV:GRPZ:PSU:SIG:RFST:{rate}')
+    
+    ### Temperature getters ###
+    def get_magnet_T(self):
+        response = self.query('READ:DEV:MB1.T1:TEMP:SIG:TEMP?')
+        T = response.split(':')[-1][:-1]
+        return T
+    def get_PT1_T(self):
+        response = self.query('READ:DEV:DB8.T1:TEMP:SIG:TEMP?')
+        T = response.split(':')[-1][:-1]
+        return T
+    def get_PT2_T(self):
+        response = self.query('READ:DEV:DB7.T1:TEMP:SIG:TEMP?')
+        T = response.split(':')[-1][:-1]
+        return T
 
 class MercuryiTC(Mercury):
     # Daughter board unique identifiers for reference
