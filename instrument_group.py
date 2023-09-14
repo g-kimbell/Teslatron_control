@@ -1,6 +1,7 @@
 from time import ctime, time, sleep
 import numpy as np
 import os
+import csv
 
 class InstrumentGroup():
     def __init__(self, voltmeters, sourcemeters, Vsourcemeters, iTC, iPS):
@@ -19,7 +20,7 @@ class InstrumentGroup():
         for name,sourcemeter in self.sourcemeters:
             headers.append(name+"_I (A)")
         for name,Vsourcemeter in self.Vsourcemeters:
-            headers.append(name+"_V (V)")
+            headers.append(name+"_Vg (V)")
             headers.append(name+"_Ileak (A)")
         for name,voltmeter in self.voltmeters:
             headers.append(name+"_V+ (V)")
@@ -76,19 +77,15 @@ class InstrumentGroup():
             time0 = time()
             timeout=timeout_hours*3600
             filename = self.check_filename_duplicate(filename)
-            with open(filename,'w') as f:
+            with open(filename, 'w', newline='') as f:
                 print(f"Writing data to {filename}")
-                header = self.get_headers()
-                for datum in header:
-                        f.write(str(datum))
-                        f.write(",")
+                writer = csv.writer(f)
+                headers = self.get_headers()
+                writer.writerows([headers])
                 measuring=True
                 while measuring:
                     data = self.read_everything()
-                    for datum in data:
-                        f.write(str(datum))
-                        f.write(",")
-                    f.write("\n")
+                    writer.writerows([data])
                     f.flush()
                     sleep(0.01)
 
@@ -104,12 +101,11 @@ class InstrumentGroup():
     def ramp_T(self,filename,controller,Ts,rates,threshold=0.05,timeout_hours=12):
         filename = self.check_filename_duplicate(filename)
 
-        with open(filename,'w') as f:
+        with open(filename, 'w', newline='') as f:
             print(f"Writing data to {filename}")
+            writer = csv.writer(f)
             headers = self.get_headers()
-            for header in headers:
-                f.write(str(header))
-                f.write(",")
+            writer.writerows([headers])
 
             if type(Ts) is not list:
                 Ts=[Ts]
@@ -138,10 +134,7 @@ class InstrumentGroup():
                 measuring = True
                 while measuring:
                     data = self.read_everything()
-                    for datum in data:
-                        f.write(str(datum))
-                        f.write(",")
-                    f.write("\n")
+                    writer.writerows([data])
                     f.flush()
                     sleep(0.01)
 
@@ -188,20 +181,17 @@ class InstrumentGroup():
         timeout=timeout_hours*3600
 
         filename = self.check_filename_duplicate(filename)
-        with open(filename,'w') as f:
+        with open(filename, 'w', newline='') as f:
             print(f"Writing data to {filename}")
+            writer = csv.writer(f)
+            headers = self.get_headers()
+            writer.writerows([headers])
+            
             condition_met = 0
             measuring = True
-            header = self.get_headers()
-            for datum in header:
-                    f.write(str(datum))
-                    f.write(",")
             while measuring:
                 data = self.read_everything()
-                for datum in data:
-                    f.write(str(datum))
-                    f.write(",")
-                f.write("\n")
+                writer.writerows([data])
                 f.flush()
                 sleep(0.01)
                 
@@ -236,12 +226,11 @@ class InstrumentGroup():
     def ramp_B(self,filename,Bs,rates,threshold=0.005,timeout_hours=12):
         filename = self.check_filename_duplicate(filename)
 
-        with open(filename,'w') as f:
+        with open(filename, 'w', newline='') as f:
             print(f"Writing data to {filename}")
+            writer = csv.writer(f)
             headers = self.get_headers()
-            for header in headers:
-                f.write(str(header))
-                f.write(",")
+            writer.writerows([headers])
 
             if type(Bs) is not list:
                 Ts=[Bs]
@@ -261,10 +250,7 @@ class InstrumentGroup():
                 measuring = True
                 while measuring:
                     data = self.read_everything()
-                    for datum in data:
-                        f.write(str(datum))
-                        f.write(",")
-                    f.write("\n")
+                    writer.writerows([data])
                     f.flush()
                     sleep(0.01)
 
@@ -286,12 +272,12 @@ class InstrumentGroup():
     def ramp_B(self,filename,Bs,rates,threshold=0.005,timeout_hours=12):
         filename = self.check_filename_duplicate(filename)
 
-        with open(filename,'w') as f:
+        with open(filename, 'w', newline='') as f:
             print(f"Writing data to {filename}")
             headers = self.get_headers()
-            for header in headers:
-                f.write(str(header))
-                f.write(",")
+            writer = csv.writer(f)
+            headers = self.get_headers()
+            writer.writerows([headers])
 
             if type(Bs) is not list:
                 Ts=[Bs]
@@ -311,10 +297,7 @@ class InstrumentGroup():
                 measuring = True
                 while measuring:
                     data = self.read_everything()
-                    for datum in data:
-                        f.write(str(datum))
-                        f.write(",")
-                    f.write("\n")
+                    writer.writerows([data])
                     f.flush()
                     sleep(0.01)
 
@@ -323,7 +306,7 @@ class InstrumentGroup():
                     else:
                         condition_met = 0
 
-                    if condition_met >= 20:
+                    if condition_met >= 5:
                         measuring=False
                         print(f"Finished ramping magnet to {B} T")
                         break
@@ -333,6 +316,28 @@ class InstrumentGroup():
                         break
         return
 
+    def set_Vg(self,filename,Vgs,compliance=5e-7,wait=0.1):
+        filename = self.check_filename_duplicate(filename)
+        with open(filename, 'w', newline='') as f:
+            print(f"Writing data to {filename}")
+            headers = self.get_headers()
+            writer = csv.writer(f)
+            headers = self.get_headers()
+            writer.writerows([headers])
+            
+            if type(Vgs) is not list:
+                Vgs=[Vgs]
+
+            for _,Vsourcemeter in self.Vsourcemeters:
+                Vsourcemeter.set_compliance(compliance)
+            
+            for Vg in Vgs:
+                for _,Vsourcemeter in self.Vsourcemeters:
+                    Vsourcemeter.set_voltage(Vg)
+                    sleep(wait)
+                    data = self.read_everything()
+                    writer.writerows([data])
+                    f.flush()
 
 
                 
