@@ -150,11 +150,11 @@ class MercuryiPS(Mercury):
         response = self.query('READ:DEV:GRPZ:PSU:SIG:FLD?')
         B = float(response.split(':')[-1][:-1])
         return B
-    def get_sweep_rate(self): # in T/min
+    def get_field_sweep_rate(self): # in T/min
         response = self.query('READ:DEV:GRPZ:PSU:SIG:RFLD?')
         rate = float(response.split(":")[-1][:-5])
         return rate
-    def get_set_field(self): # in T
+    def get_field_setpoint(self): # in T
         response = self.query('READ:DEV:GRPZ:PSU:SIG:FSET?')
         B = float(response.split(':')[-1][:-1])
         return B
