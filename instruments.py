@@ -116,22 +116,7 @@ class VSourcemeter(Instrument):
     def set_compliance(self,compliance):
         self.write(f'SENS:CURR:PROT {compliance:.6f}')
 
-class MercuryiPS(Instrument):
-    def __init__(self,GPIB_address,**kwargs):
-        super().__init__(GPIB_address,**kwargs)
-    def get_config(self):
-        return self.instr.query('READ:SYS:CAT')
-
-class MercuryiTC(Instrument):
-    # Daughter board unique identifiers for reference
-    # DB3.H1 Heater
-    # DB4.G1 Aux
-    # DB5.P1 Pressure
-    # DB8.T1 Probe
-    # MB0.H1 Heater
-    # MB1.T1 VTI
-    def __init__(self,GPIB_address,**kwargs):
-        super().__init__(GPIB_address,**kwargs)
+class Mercury(Instrument):
     def query(self,command):
         logging.info(f'Query: {command}')
         response = self.instr.query(command)
@@ -150,7 +135,77 @@ class MercuryiTC(Instrument):
             logging.error(f'Invalid command: {command}')
     def get_config(self):
         return self.query('READ:SYS:CAT')
+
+class MercuryiPS(Mercury):
+    ### Magnet getters ###
+    def get_voltage(self): # in V
+        response = self.query('READ:DEV:GRPZ:PSU:SIG:VOLT?')
+        V = float(response.split(':')[-1][:-1])
+        return V
+    def get_current(self): # in A
+        response = self.query('READ:DEV:GRPZ:PSU:SIG:CURR?')
+        I = float(response.split(':')[-1][:-1])
+        return I
+    def get_field(self): # in T
+        response = self.query('READ:DEV:GRPZ:PSU:SIG:FLD?')
+        B = float(response.split(':')[-1][:-1])
+        return B
+    def get_sweep_rate(self): # in T/min
+        response = self.query('READ:DEV:GRPZ:PSU:SIG:RFLD?')
+        rate = float(response.split(":")[-1][:-5])
+        return rate
+    def get_set_field(self): # in T
+        response = self.query('READ:DEV:GRPZ:PSU:SIG:FSET?')
+        B = float(response.split(':')[-1][:-1])
+        return B
+    def get_setpoint_reached(self,tol=0.001): # True or False
+        return abs(self.get_set_field()-self.get_field())<tol
     
+    ### Magnet setters ###
+    def set_switch_heater(self,state): # 0 = off, 1 = on
+        match state:
+            case 0:
+                self.query('SET:DEV:GRPZ:PSU:SIG:SWHN:ON')
+            case 1:
+                self.query('SET:DEV:GRPZ:PSU:SIG:SWHN:OFF')
+    def set_output(self,state): # 0 = to zero, 1 = to set, 2 = hold
+        match state:
+            case 0:
+                self.query('SET:DEV:GRPZ:PSU:ACTN:RTOZ')
+            case 1:
+                self.query('SET:DEV:GRPZ:PSU:ACTN:RTOS')
+            case 2:
+                self.query('SET:DEV:GRPZ:PSU:ACTN:HOLD')
+    def set_field(self,B,rate): # in T
+        self.set_output(2)
+        self.query(f'SET:DEV:GRPZ:PSU:SIG:RFST:{rate}')
+        time.sleep(0.1)
+        self.query(f'SET:DEV:GRPZ:PSU:SIG:FSET:{B}')
+        time.sleep(0.1)
+        self.set_output(1)
+    
+    ### Temperature getters ###
+    def get_magnet_T(self):
+        response = self.query('READ:DEV:MB1.T1:TEMP:SIG:TEMP?')
+        T = response.split(':')[-1][:-1]
+        return T
+    def get_PT1_T(self):
+        response = self.query('READ:DEV:DB8.T1:TEMP:SIG:TEMP?')
+        T = response.split(':')[-1][:-1]
+        return T
+    def get_PT2_T(self):
+        response = self.query('READ:DEV:DB7.T1:TEMP:SIG:TEMP?')
+        T = response.split(':')[-1][:-1]
+        return T
+
+class MercuryiTC(Mercury):
+    # Daughter board unique identifiers for reference
+    # DB3.H1 Heater
+    # DB4.G1 Aux
+    # DB5.P1 Pressure
+    # DB8.T1 Probe
+    # MB0.H1 Heater
+    # MB1.T1 VTI
     ### Probe control ###
     def get_probe_temp(self):
         response=self.query('READ:DEV:MB0.H1:TEMP:SIG:TEMP?')
