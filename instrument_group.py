@@ -78,6 +78,36 @@ class InstrumentGroup():
             path = filename + "_" + str(i) + extension
             i+=1
         return path
+        
+    def measure_until_interrupted(self,filename,timeout_hours=12):
+        try:
+            time0 = time()
+            timeout=timeout_hours*3600
+            filename = self.check_filename_duplicate(filename)
+            with open(filename,'w') as f:
+                print(f"Writing data to {filename}")
+                header = self.get_headers()
+                for datum in header:
+                        f.write(str(datum))
+                        f.write(",")
+                measuring=True
+                while measuring:
+                    data = self.read_everything()
+                    for datum in data:
+                        f.write(str(datum))
+                        f.write(",")
+                    f.write("\n")
+                    f.flush()
+                    sleep(0.01)
+
+                    if time()-time0 > timeout:
+                        measuring=False
+                        print("Timeout reached.")
+                        break
+
+        except KeyboardInterrupt:
+            print("User interrupted measurement.")
+            pass
     
     def ramp_T(self,filename,controller,temp,rate,threshold=0.05,timeout_hours=12):
         match controller:
