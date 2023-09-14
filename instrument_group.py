@@ -52,7 +52,8 @@ class InstrumentGroup():
         for name,sourcemeter in self.sourcemeters:
             data += [sourcemeter.get_current()]
         for name,Vsourcemeter in self.Vsourcemeters:
-            data += [Vsourcemeter.get_voltage()]
+            Vg,Ileak = Vsourcemeter.get_voltage_and_Ileak()
+            data += [Vg,Ileak]
         for name,voltmeter in self.voltmeters:
             data += [voltmeter.get_voltage_measurement()]
         for name,sourcemeter in self.sourcemeters:
@@ -259,53 +260,6 @@ class InstrumentGroup():
                     else:
                         condition_met = 0
 
-                    if condition_met >= 20:
-                        measuring=False
-                        print(f"Finished ramping magnet to {B} T")
-                        break
-                    if time()-time0 > timeout:
-                        measuring=False
-                        print("Timeout reached")
-                        break
-        return
-    
-    def ramp_B(self,filename,Bs,rates,threshold=0.005,timeout_hours=12):
-        filename = self.check_filename_duplicate(filename)
-
-        with open(filename, 'w', newline='') as f:
-            print(f"Writing data to {filename}")
-            headers = self.get_headers()
-            writer = csv.writer(f)
-            headers = self.get_headers()
-            writer.writerows([headers])
-
-            if type(Bs) is not list:
-                Ts=[Bs]
-            if type(rates) is not list:
-                rates=[rates for T in Ts]
-            if len(Bs) != len(rates):
-                print("Warning: length of B and rate lists are not equal")
-
-            for B,rate in zip(Bs,rates):
-                self.iPS.set_field(B,rate)
-                print(f"Ramping magnet to {B} T at {rate} T/min")
-
-                time0 = time()
-                timeout=timeout_hours*3600
-
-                condition_met = 0
-                measuring = True
-                while measuring:
-                    data = self.read_everything()
-                    writer.writerows([data])
-                    f.flush()
-                    sleep(0.01)
-
-                    if abs(self.iPS.get_field()-B) < threshold:
-                        condition_met += 1
-                    else:
-                        condition_met = 0
-
                     if condition_met >= 5:
                         measuring=False
                         print(f"Finished ramping magnet to {B} T")
@@ -333,11 +287,53 @@ class InstrumentGroup():
             
             for Vg in Vgs:
                 for _,Vsourcemeter in self.Vsourcemeters:
-                    Vsourcemeter.set_voltage(Vg)
-                    sleep(wait)
-                    data = self.read_everything()
-                    writer.writerows([data])
-                    f.flush()
+                    if abs(Vg)<250:
+                        Vsourcemeter.set_voltage(Vg)
+                        sleep(wait)
+                        data = self.read_everything()
+                        writer.writerows([data])
+                        f.flush()
+                    else:
+                        print(f"Gate setpoint {Vg} V is larger than max 250 V")
+
+    def set_current(self,I,compliance=5):
+        print(f"Setting current to {I}, compliance {compliance}")
+        if abs(I)<=1e-4:
+            for _,sourcemeter in self.sourcemeters:
+                sourcemeter.set_compliance(compliance)
+                sourcemeter.set_current(I)
+                sourcemeter.turn_on()
+        else:
+            print(f"Current setpoint {I} A is larger than max 1e-4 A")
+    
+    def perform_IV(self,filename,Is,compliance=5,wait=0.1):
+        filename = self.check_filename_duplicate(filename)
+        with open(filename, 'w', newline='') as f:
+            print(f"Writing data to {filename}")
+            headers = self.get_headers()
+            writer = csv.writer(f)
+            headers = self.get_headers()
+            writer.writerows([headers])
+            
+            for _,sourcemeter in self.sourcemeters:
+                sourcemeter.set_compliance(compliance)
+                sourcemeter.set_current(Is[0])
+                sourcemeter.turn_on()
+            
+            for I in Is:
+                if abs(I)<=1e-4:
+                    for _,sourcemeter in self.sourcemeters:
+                        sourcemeter.set_current(I)
+                        sleep(wait)
+                        data = self.read_everything()
+                        writer.writerows([data])
+                        f.flush()
+                else:
+                    print(f"Current setpoint {I} A is larger than max 1e-4 A")
+
+    
+
+
 
 
                 
