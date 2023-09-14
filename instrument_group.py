@@ -2,7 +2,7 @@ from time import ctime, time, sleep
 import numpy as np
 import os
 
-class Instrument_Group():
+class InstrumentGroup():
     def __init__(self, voltmeters, sourcemeters, Vsourcemeters, iTC, iPS):
         self.voltmeters = voltmeters
         self.sourcemeters = sourcemeters
