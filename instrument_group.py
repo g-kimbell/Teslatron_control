@@ -109,18 +109,88 @@ class InstrumentGroup():
             print("User interrupted measurement.")
             pass
     
-    def ramp_T(self,filename,controller,temp,rate,threshold=0.05,timeout_hours=12):
+    def ramp_T(self,filename,controller,Ts,rates,threshold=0.05,timeout_hours=12):
+        filename = self.check_filename_duplicate(filename)
+
+        with open(filename,'w') as f:
+            print(f"Writing data to {filename}")
+            headers = self.get_headers()
+            for header in headers:
+                f.write(str(header))
+                f.write(",")
+
+            if type(Ts) is not list:
+                Ts=[Ts]
+            if type(rates) is not list:
+                rates=[rates for T in Ts]
+            if len(Ts) != len(rates):
+                print("Warning: length of T and rate lists are not equal")
+
+            for T,rate in zip(Ts,rates):
+                match controller:
+                    case "probe":
+                        self.iTC.ramp_probe_temp(T,rate)
+                    case "VTI":
+                        self.iTC.ramp_VTI_temp(T,rate)
+                    case "both":
+                        self.iTC.ramp_probe_temp(T,rate)
+                        self.iTC.ramp_VTI_temp(T,rate)
+                    case _:
+                        raise ValueError("Invalid controller. Use 'probe', 'VTI', or 'both'.")
+                print(f"Ramping {controller} to {T} K at {rate} K/min")
+
+                time0 = time()
+                timeout=timeout_hours*3600
+
+                condition_met = 0
+                measuring = True
+                while measuring:
+                    data = self.read_everything()
+                    for datum in data:
+                        f.write(str(datum))
+                        f.write(",")
+                    f.write("\n")
+                    f.flush()
+                    sleep(0.01)
+
+                    match controller:
+                        case "probe":
+                            if abs(self.iTC.get_probe_temp()-T) < threshold:
+                                condition_met += 1
+                            else:
+                                condition_met = 0
+                        case "VTI":
+                            if abs(self.iTC.get_VTI_temp()-T) < threshold:
+                                condition_met += 1
+                            else:
+                                condition_met = 0
+                        case "both":
+                            if (abs(self.iTC.get_probe_temp()-T) < threshold) and (abs(self.iTC.get_VTI_temp()-T) < threshold):
+                                condition_met += 1
+                            else:
+                                condition_met = 0
+                    if condition_met >= 20:
+                        measuring=False
+                        print(f"Finished ramping {controller} to {T} K.")
+                        break
+                    if time()-time0 > timeout:
+                        measuring=False
+                        print("Timeout reached.")
+                        break
+        return
+    
+    def set_T(self,filename,controller,temp,threshold=0.05,timeout_hours=12):
         match controller:
             case "probe":
-                self.iTC.ramp_probe_temp(temp,rate)
+                self.iTC.set_probe_temp(temp)
             case "VTI":
-                self.iTC.ramp_VTI_temp(temp,rate)
+                self.iTC.set_VTI_temp(temp)
             case "both":
-                self.iTC.ramp_probe_temp(temp,rate)
-                self.iTC.ramp_VTI_temp(temp,rate)
+                self.iTC.set_probe_temp(temp)
+                self.iTC.set_VTI_temp(temp)
             case _:
                 raise ValueError("Invalid controller. Use 'probe', 'VTI', or 'both'.")
-        print("Ramping {} to {} K at {} K/min".format(controller,temp,rate))
+        print(f"Setting {controller} to {temp} K")
 
         time0 = time()
         timeout=timeout_hours*3600
