@@ -16,12 +16,12 @@ class InstrumentGroup():
             headers += ["T_probe (K)", "T_probe_setpoint (K)", "T_probe_ramp_rate (K/min)", "heater_probe (%)", "T_VTI (K)", "T_VTI_setpoint (K)", "T_VTI_ramp_rate (K/min)", "heater_VTI (%)","Pressure (mB)","Needlevalve"]
         if self.iPS:
             headers += ["B (T)", "B_setpoint (T)", "B_ramp_rate (T/min)"]
-        for name,sourcemeter in self.sourcemeters.items():
+        for name,sourcemeter in self.sourcemeters:
             headers.append(name+"_I (A)")
-        for name,Vsourcemeter in self.Vsourcemeters.items():
+        for name,Vsourcemeter in self.Vsourcemeters:
             headers.append(name+"_V (V)")
             headers.append(name+"_Ileak (A)")
-        for name,voltmeter in self.voltmeters.items():
+        for name,voltmeter in self.voltmeters:
             headers.append(name+"_V+ (V)")
             headers.append(name+"_V- (V)")
         return headers
