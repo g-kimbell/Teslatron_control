@@ -12,26 +12,30 @@ class InstrumentGroup():
         self.iPS = iPS
 
     def get_headers(self):
-        headers = ["Date", "Time"]
+        headers = ["Time"]
         if self.iTC:
             headers += ["T_probe (K)", "T_probe_setpoint (K)", "T_probe_ramp_rate (K/min)", "heater_probe (%)", "T_VTI (K)", "T_VTI_setpoint (K)", "T_VTI_ramp_rate (K/min)", "heater_VTI (%)","Pressure (mB)","Needlevalve"]
         if self.iPS:
             headers += ["B (T)", "B_setpoint (T)", "B_ramp_rate (T/min)"]
         for name,sourcemeter in self.sourcemeters:
-            headers.append(name+"_I (A)")
+            headers.append(f"I_{name} (A)")
         for name,Vsourcemeter in self.Vsourcemeters:
-            headers.append(name+"_Vg (V)")
-            headers.append(name+"_Ileak (A)")
+            headers.append(f"_Vg_{name} (V)")
+            headers.append(f"Ileak_{name} (A)")
         for name,voltmeter in self.voltmeters:
-            headers.append(name+"_V+ (V)")
+            headers.append(f"V+_{name} (V)")
         for name,voltmeter in self.voltmeters:
-            headers.append(name+"_V- (V)")
+            headers.append(f"V-_{name} (V)")
+        for Iname,sourcemeter in self.sourcemeters:
+            for Vname,voltmeter in self.voltmeters:
+                headers.append(f"R_{Iname}{Vname} (V)")
         return headers
 
     def read_everything(self):
-        data=[]
-        data += [ctime()]
-        data += [time()]
+        Is = []
+        Vps = []
+        Vns = []
+        data = [time()]
         for name,voltmeter in self.voltmeters:
             voltmeter.start_voltage_measurement()
         if self.iTC:
@@ -50,18 +54,27 @@ class InstrumentGroup():
                            self.iPS.get_field_setpoint(),
                            self.iPS.get_field_sweep_rate()]
         for name,sourcemeter in self.sourcemeters:
-            data += [sourcemeter.get_current()]
+            Is += [sourcemeter.get_current()]
+        data += Is
         for name,Vsourcemeter in self.Vsourcemeters:
             Vg,Ileak = Vsourcemeter.get_voltage_and_Ileak()
             data += [Vg,Ileak]
         for name,voltmeter in self.voltmeters:
-            data += [voltmeter.get_voltage_measurement()]
+            Vps += [voltmeter.get_voltage_measurement()]
+        data += Vps
         for name,sourcemeter in self.sourcemeters:
             sourcemeter.reverse_current()
         for name,voltmeter in self.voltmeters:
             voltmeter.start_voltage_measurement()
         for name,voltmeter in self.voltmeters:
-            data += [voltmeter.get_voltage_measurement()]
+            Vns += [voltmeter.get_voltage_measurement()]
+        data += Vns
+        for I in Is:
+            for Vp,Vn in zip(Vps,Vns):
+                try:
+                    data += [0.5*(Vp-Vn)/I]
+                except:
+                    data += [np.nan]
         return data
 
     @staticmethod
@@ -81,6 +94,7 @@ class InstrumentGroup():
             with open(filename, 'w', newline='') as f:
                 print(f"Writing data to {filename}")
                 writer = csv.writer(f)
+                writer.writerows([[str(ctime())],["Continuous measurement"],["[DATA]"]])
                 headers = self.get_headers()
                 writer.writerows([headers])
                 measuring=True
@@ -105,6 +119,7 @@ class InstrumentGroup():
         with open(filename, 'w', newline='') as f:
             print(f"Writing data to {filename}")
             writer = csv.writer(f)
+            writer.writerows([[str(ctime())],[f"Ramp {controller} T"],["[DATA]"]])
             headers = self.get_headers()
             writer.writerows([headers])
 
@@ -209,6 +224,7 @@ class InstrumentGroup():
         with open(filename, 'w', newline='') as f:
             print(f"Writing data to {filename}")
             writer = csv.writer(f)
+            writer.writerows([[str(ctime())],[f"Set {controller} T"],["[DATA]"]])
             headers = self.get_headers()
             writer.writerows([headers])
             
@@ -276,6 +292,7 @@ class InstrumentGroup():
         with open(filename, 'w', newline='') as f:
             print(f"Writing data to {filename}")
             writer = csv.writer(f)
+            writer.writerows([[str(ctime())],[f"Ramp magnetic field"],["[DATA]"]])
             headers = self.get_headers()
             writer.writerows([headers])
 
@@ -320,8 +337,8 @@ class InstrumentGroup():
         filename = self.check_filename_duplicate(filename)
         with open(filename, 'w', newline='') as f:
             print(f"Writing data to {filename}")
-            headers = self.get_headers()
             writer = csv.writer(f)
+            writer.writerows([[str(ctime())],[f"Set Vg"],["[DATA]"]])
             headers = self.get_headers()
             writer.writerows([headers])
             
@@ -356,8 +373,8 @@ class InstrumentGroup():
         filename = self.check_filename_duplicate(filename)
         with open(filename, 'w', newline='') as f:
             print(f"Writing data to {filename}")
-            headers = self.get_headers()
             writer = csv.writer(f)
+            writer.writerows([[str(ctime())],[f"Measure IV"],["[DATA]"]])
             headers = self.get_headers()
             writer.writerows([headers])
             
