@@ -67,3 +67,51 @@ class Instrument_Group():
             i+=1
         sleep(0.01)
         return data
+
+    def ramp_VTI(self,filename,temp,rate,threshold=0.05,timeout_hours=12):
+        self.iTC.ramp_VTI_temp(self,temp,rate)
+        print("Ramping VTI to {} K at {} K/min".format(temp,rate))
+
+        time0 = time.time()
+        timeout=timeout_hours*3600
+
+        with open(filename,'w') as f:
+            print("Writing data to {}".format(filename))
+            while measuring==True:
+                data = self.read_everything()
+                f.write(data)
+                f.flush()
+                sleep(0.1)
+                if abs(self.iTC.get_VTI_temp()-temp) < threshold:
+                    measuring=False
+                    print("Finished ramping VTI to {} K".format(temp))
+                    break
+                if time.time()-time0 > timeout:
+                    measuring=False
+                    print("Timeout reached")
+                    break
+        return
+    
+    def ramp_probe(self,filename,temp,rate,threshold=0.05,timeout_hours=12):
+        self.iTC.ramp_probe_temp(self,temp,rate)
+        print("Ramping probe to {} K at {} K/min".format(temp,rate))
+
+        time0 = time.time()
+        timeout=timeout_hours*3600
+
+        with open(filename,'w') as f:
+            print("Writing data to {}".format(filename))
+            while measuring==True:
+                data = self.read_everything()
+                f.write(data)
+                f.flush()
+                sleep(0.1)
+                if abs(self.iTC.get_probe_temp()-temp) < threshold:
+                    measuring=False
+                    print("Finished ramping VTI to {} K".format(temp))
+                    break
+                if time.time()-time0 > timeout:
+                    measuring=False
+                    print("Timeout reached")
+                    break
+        return

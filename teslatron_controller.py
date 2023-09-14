@@ -2,6 +2,7 @@ import time
 from PyQt5 import QtWidgets, QtCore
 from PyQt5.QtCore import QThreadPool
 from instruments import Voltmeter, Sourcemeter, VSourcemeter, MercuryiTC, MercuryiPS
+from instrument_group import InstrumentGroup
 import pyqtgraph as pg
 import logging
 import pandas as pd
@@ -133,6 +134,9 @@ class InitialiseWindow(QtWidgets.QWidget):
         else:
             iPS = None
 
+        global instrument_group 
+        instrument_group = InstrumentGroup(voltmeters, sourcemeters, Vsourcemeters, iTC, iPS)
+
     def start_GUI(self):
         window.show()
         self.close()
@@ -152,29 +156,7 @@ class Data_Collector(QtCore.QRunnable): # thread that collects the data
     def run(self):
         while window.measuring == True:
             self.loop_counter += 1
-            # Get all the data
-            data = {}
-            t = time.time()
-            data["Time"] = t
-            for name,voltmeter in voltmeters.items():
-                voltmeter.start_voltage_measurement()
-            for name,sourcemeter in sourcemeters.items():
-                data[name] = sourcemeter.get_current()
-            for name,Vsourcemeter in Vsourcemeters.items():
-                data[name] = Vsourcemeter.get_voltage()
-            if iTC:
-                data["T_probe"] = iTC.get_probe_temp()
-                data["T_probe_setpoint"] = iTC.get_probe_setpoint()
-                data["T_probe_ramp_rate"] = iTC.get_probe_ramp_rate()
-                data["T_probe_heater"] = iTC.get_probe_heater()
-                data["T_VTI"] = iTC.get_VTI_temp()
-                data["T_VTI_setpoint"] = iTC.get_VTI_setpoint()
-                data["T_VTI_ramp_rate"] = iTC.get_VTI_ramp_rate()
-                data["T_VTI_heater"] = iTC.get_VTI_heater()
-            # add iPS functionality
-            for name,voltmeter in voltmeters.items():
-                data[name] = voltmeter.get_voltage_measurement()
-            time.sleep(0.001)
+            data = instrument_group.read_everything()
             self.signals.result.emit(data)
         self.signals.finished.emit()
 
@@ -185,7 +167,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.setGeometry(50,50,800,600)
         self.measuring = False
         self.filename = 'test_data.txt'
-        self.plot_data = pd.DataFrame()
+        self.plot_data = pd.DataFrame(headers = instrument_group.get_headers())
         self.initUI()
 
     def initUI(self):
