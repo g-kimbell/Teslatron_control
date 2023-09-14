@@ -23,18 +23,19 @@ class InstrumentGroup():
             headers.append(name+"_Ileak (A)")
         for name,voltmeter in self.voltmeters:
             headers.append(name+"_V+ (V)")
+        for name,voltmeter in self.voltmeters:
             headers.append(name+"_V- (V)")
         return headers
 
     def read_everything(self):
-        data=np.array(len(self.get_headers()))
-        data[0] = ctime()
-        data[1] = time()
-        for name,voltmeter in self.voltmeters.items():
+        data=[]
+        data += [ctime()]
+        data += [time()]
+        for name,voltmeter in self.voltmeters:
             voltmeter.start_voltage_measurement()
         i=2
         if self.iTC:
-            data[2:11] = [self.iTC.get_probe_temp(),
+            data += [self.iTC.get_probe_temp(),
                           self.iTC.get_probe_setpoint(),
                           self.iTC.get_probe_ramp_rate(),
                           self.iTC.get_probe_heater(),
@@ -46,39 +47,37 @@ class InstrumentGroup():
                           self.iTC.get_needlevalve()]
             i+=10
         if self.iPS:
-            data[i:i+3] = [self.iPS.get_field(),
+            data += [self.iPS.get_field(),
                            self.iPS.get_field_setpoint(),
-                           self.iPS.get_field_ramp_rate()]
+                           self.iPS.get_field_sweep_rate()]
             i+=3
-        for name,sourcemeter in self.sourcemeters.items():
-            data[i] = sourcemeter.get_current()
+        for name,sourcemeter in self.sourcemeters:
+            data += [sourcemeter.get_current()]
             i+=1
-        for name,Vsourcemeter in self.Vsourcemeters.items():
-            data[i] = Vsourcemeter.get_voltage()
+        for name,Vsourcemeter in self.Vsourcemeters:
+            data += [Vsourcemeter.get_voltage()]
             i+=1
-        for name,voltmeter in self.voltmeters.items():
-            data[i] = voltmeter.get_voltage_measurement()
+        for name,voltmeter in self.voltmeters:
+            data += [voltmeter.get_voltage_measurement()]
             i+=1
-        for name,sourcemeter in self.sourcemeters.items():
+        for name,sourcemeter in self.sourcemeters:
             sourcemeter.reverse_current()
-        for name,voltmeter in self.voltmeters.items():
+        for name,voltmeter in self.voltmeters:
             voltmeter.start_voltage_measurement()
-        for name,voltmeter in self.voltmeters.items():
-            data[i] = voltmeter.get_voltage_measurement()
+        for name,voltmeter in self.voltmeters:
+            data += [voltmeter.get_voltage_measurement()]
             i+=1
         sleep(0.01)
         return data
 
     @staticmethod
-    def check_filename_duplicate(filename):
-        if os.path.isfile(filename):
-            print(f"Filename '{filename}' already exists")
-            i=1
-            while os.path.isfile(filename+"_"+str(i)):
-                i+=1
-            filename = filename+"_"+str(i)
-            print(f"Saving data to '{filename}'")
-        return filename
+    def check_filename_duplicate(path):
+        filename,extension = os.path.splitext(path)
+        i=1
+        while os.path.isfile(path):
+            path = filename + "_" + str(i) + extension
+            i+=1
+        return path
     
     def ramp_T(self,filename,controller,temp,rate,threshold=0.05,timeout_hours=12):
         match controller:
@@ -101,9 +100,15 @@ class InstrumentGroup():
             print(f"Writing data to {filename}")
             condition_met = 0
             measuring = True
+            header = self.get_headers()
+            for datum in header:
+                    f.write(str(datum))
+                    f.write(",")
             while measuring:
                 data = self.read_everything()
-                f.write(data)
+                for datum in data:
+                    f.write(str(datum))
+                    f.write(",")
                 f.write("\n")
                 f.flush()
                 sleep(0.01)
@@ -125,7 +130,7 @@ class InstrumentGroup():
                         else:
                             condition_met = 0
                         
-                if condition_met >= 5:
+                if condition_met >= 20:
                     measuring=False
                     print(f"Finished ramping {controller} to {temp} K.")
                     break
