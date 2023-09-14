@@ -83,24 +83,25 @@ class InstrumentGroup():
     def ramp_T(self,filename,controller,temp,rate,threshold=0.05,timeout_hours=12):
         match controller:
             case "probe":
-                self.iTC.ramp_probe_temp(self,temp,rate)
+                self.iTC.ramp_probe_temp(temp,rate)
             case "VTI":
-                self.iTC.ramp_VTI_temp(self,temp,rate)
+                self.iTC.ramp_VTI_temp(temp,rate)
             case "both":
-                self.iTC.ramp_probe_temp(self,temp,rate)
-                self.iTC.ramp_VTI_temp(self,temp,rate)
+                self.iTC.ramp_probe_temp(temp,rate)
+                self.iTC.ramp_VTI_temp(temp,rate)
             case _:
                 raise ValueError("Invalid controller. Use 'probe', 'VTI', or 'both'.")
         print("Ramping {} to {} K at {} K/min".format(controller,temp,rate))
 
-        time0 = time.time()
+        time0 = time()
         timeout=timeout_hours*3600
 
         filename = self.check_filename_duplicate(filename)
         with open(filename,'w') as f:
             print(f"Writing data to {filename}")
             condition_met = 0
-            while measuring==True:
+            measuring = True
+            while measuring:
                 data = self.read_everything()
                 f.write(data)
                 f.write("\n")
@@ -129,7 +130,7 @@ class InstrumentGroup():
                     print(f"Finished ramping {controller} to {temp} K.")
                     break
 
-                if time.time()-time0 > timeout:
+                if time()-time0 > timeout:
                     measuring=False
                     print("Timeout reached.")
                     break
