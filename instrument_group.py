@@ -79,84 +79,58 @@ class Instrument_Group():
             filename = filename+"_"+str(i)
             print(f"Saving data to '{filename}'")
         return filename
-
-    def ramp_VTI(self,filename,temp,rate,threshold=0.05,timeout_hours=12):
-        self.iTC.ramp_VTI_temp(self,temp,rate)
-        print("Ramping VTI to {} K at {} K/min".format(temp,rate))
-
-        time0 = time.time()
-        timeout=timeout_hours*3600
-
-        filename = self.check_filename_duplicate(filename)
-        with open(filename,'w') as f:
-            print("Writing data to {}".format(filename))
-            while measuring==True:
-                data = self.read_everything()
-                f.write(data)
-                f.flush()
-                sleep(0.01)
-                if abs(self.iTC.get_VTI_temp()-temp) < threshold:
-                    measuring=False
-                    print("Finished ramping VTI to {} K".format(temp))
-                    break
-                if time.time()-time0 > timeout:
-                    measuring=False
-                    print("Timeout reached")
-                    break
-        return
     
-    def ramp_probe(self,filename,temp,rate,threshold=0.05,timeout_hours=12):
-        self.iTC.ramp_probe_temp(self,temp,rate)
-        print("Ramping probe to {} K at {} K/min".format(temp,rate))
+    def ramp_T(self,filename,controller,temp,rate,threshold=0.05,timeout_hours=12):
+        match controller:
+            case "probe":
+                self.iTC.ramp_probe_temp(self,temp,rate)
+            case "VTI":
+                self.iTC.ramp_VTI_temp(self,temp,rate)
+            case "both":
+                self.iTC.ramp_probe_temp(self,temp,rate)
+                self.iTC.ramp_VTI_temp(self,temp,rate)
+            case _:
+                raise ValueError("Invalid controller. Use 'probe', 'VTI', or 'both'.")
+        print("Ramping {} to {} K at {} K/min".format(controller,temp,rate))
 
         time0 = time.time()
         timeout=timeout_hours*3600
 
         filename = self.check_filename_duplicate(filename)
         with open(filename,'w') as f:
-            print("Writing data to {}".format(filename))
-            f.write(self.get_headers())
-            f.write("\n")
-            f.flush()
+            print(f"Writing data to {filename}")
+            condition_met = 0
             while measuring==True:
                 data = self.read_everything()
                 f.write(data)
                 f.write("\n")
                 f.flush()
                 sleep(0.01)
-                if abs(self.iTC.get_probe_temp()-temp) < threshold:
+                
+                match controller:
+                    case "probe":
+                        if abs(self.iTC.get_probe_temp()-temp) < threshold:
+                            condition_met += 1
+                        else:
+                            condition_met = 0
+                    case "VTI":
+                        if abs(self.iTC.get_VTI_temp()-temp) < threshold:
+                            condition_met += 1
+                        else:
+                            condition_met = 0
+                    case "both":
+                        if (abs(self.iTC.get_probe_temp()-temp) < threshold) and (abs(self.iTC.get_VTI_temp()-temp) < threshold):
+                            condition_met += 1
+                        else:
+                            condition_met = 0
+                        
+                if condition_met >= 5:
                     measuring=False
-                    print("Finished ramping probe to {} K".format(temp))
+                    print(f"Finished ramping {controller} to {temp} K.")
                     break
+
                 if time.time()-time0 > timeout:
                     measuring=False
-                    print("Timeout reached")
-                    break
-        return
-    
-    def ramp_probe_and_VTI(self,filename,temp,rate,threshold=0.05,timeout_hours=12):
-        self.iTC.ramp_probe_temp(self,temp,rate)
-        self.iTC.ramp_VTI_temp(self,temp,rate)
-        print("Ramping probe and VTI to {} K at {} K/min".format(temp,rate))
-
-        time0 = time.time()
-        timeout=timeout_hours*3600
-
-        filename = self.check_filename_duplicate(filename)
-        with open(filename,'w') as f:
-            print("Writing data to {}".format(filename))
-            while measuring==True:
-                data = self.read_everything()
-                f.write(data)
-                f.write("\n")
-                f.flush()
-                sleep(0.01)
-                if (abs(self.iTC.get_probe_temp()-temp) < threshold) and (abs(self.iTC.get_VTI_temp()-temp) < threshold):
-                    measuring=False
-                    print("Finished ramping probe and VTI to {} K".format(temp))
-                    break
-                if time.time()-time0 > timeout:
-                    measuring=False
-                    print("Timeout reached")
+                    print("Timeout reached.")
                     break
         return
