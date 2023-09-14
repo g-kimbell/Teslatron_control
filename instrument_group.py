@@ -33,7 +33,6 @@ class InstrumentGroup():
         data += [time()]
         for name,voltmeter in self.voltmeters:
             voltmeter.start_voltage_measurement()
-        i=2
         if self.iTC:
             data += [self.iTC.get_probe_temp(),
                           self.iTC.get_probe_setpoint(),
@@ -45,29 +44,22 @@ class InstrumentGroup():
                           self.iTC.get_VTI_heater(),
                           self.iTC.get_pressure(),
                           self.iTC.get_needlevalve()]
-            i+=10
         if self.iPS:
             data += [self.iPS.get_field(),
                            self.iPS.get_field_setpoint(),
                            self.iPS.get_field_sweep_rate()]
-            i+=3
         for name,sourcemeter in self.sourcemeters:
             data += [sourcemeter.get_current()]
-            i+=1
         for name,Vsourcemeter in self.Vsourcemeters:
             data += [Vsourcemeter.get_voltage()]
-            i+=1
         for name,voltmeter in self.voltmeters:
             data += [voltmeter.get_voltage_measurement()]
-            i+=1
         for name,sourcemeter in self.sourcemeters:
             sourcemeter.reverse_current()
         for name,voltmeter in self.voltmeters:
             voltmeter.start_voltage_measurement()
         for name,voltmeter in self.voltmeters:
             data += [voltmeter.get_voltage_measurement()]
-            i+=1
-        sleep(0.01)
         return data
 
     @staticmethod
@@ -102,11 +94,11 @@ class InstrumentGroup():
 
                     if time()-time0 > timeout:
                         measuring=False
-                        print("Timeout reached.")
+                        print("Timeout reached")
                         break
 
         except KeyboardInterrupt:
-            print("User interrupted measurement.")
+            print("User interrupted measurement")
             pass
     
     def ramp_T(self,filename,controller,Ts,rates,threshold=0.05,timeout_hours=12):
@@ -136,7 +128,7 @@ class InstrumentGroup():
                         self.iTC.ramp_probe_temp(T,rate)
                         self.iTC.ramp_VTI_temp(T,rate)
                     case _:
-                        raise ValueError("Invalid controller. Use 'probe', 'VTI', or 'both'.")
+                        raise ValueError("Invalid controller. Use 'probe', 'VTI', or 'both'")
                 print(f"Ramping {controller} to {T} K at {rate} K/min")
 
                 time0 = time()
@@ -171,11 +163,11 @@ class InstrumentGroup():
                                 condition_met = 0
                     if condition_met >= 20:
                         measuring=False
-                        print(f"Finished ramping {controller} to {T} K.")
+                        print(f"Finished ramping {controller} to {T} K")
                         break
                     if time()-time0 > timeout:
                         measuring=False
-                        print("Timeout reached.")
+                        print("Timeout reached")
                         break
         return
     
@@ -189,7 +181,7 @@ class InstrumentGroup():
                 self.iTC.set_probe_temp(temp)
                 self.iTC.set_VTI_temp(temp)
             case _:
-                raise ValueError("Invalid controller. Use 'probe', 'VTI', or 'both'.")
+                raise ValueError("Invalid controller, use 'probe', 'VTI', or 'both'")
         print(f"Setting {controller} to {temp} K")
 
         time0 = time()
@@ -232,11 +224,115 @@ class InstrumentGroup():
                         
                 if condition_met >= 20:
                     measuring=False
-                    print(f"Finished ramping {controller} to {temp} K.")
+                    print(f"Finished ramping {controller} to {temp} K")
                     break
 
                 if time()-time0 > timeout:
                     measuring=False
-                    print("Timeout reached.")
+                    print("Timeout reached")
                     break
         return
+    
+    def ramp_B(self,filename,Bs,rates,threshold=0.005,timeout_hours=12):
+        filename = self.check_filename_duplicate(filename)
+
+        with open(filename,'w') as f:
+            print(f"Writing data to {filename}")
+            headers = self.get_headers()
+            for header in headers:
+                f.write(str(header))
+                f.write(",")
+
+            if type(Bs) is not list:
+                Ts=[Bs]
+            if type(rates) is not list:
+                rates=[rates for T in Ts]
+            if len(Bs) != len(rates):
+                print("Warning: length of B and rate lists are not equal")
+
+            for B,rate in zip(Bs,rates):
+                self.iPS.set_field(B,rate)
+                print(f"Ramping magnet to {B} T at {rate} T/min")
+
+                time0 = time()
+                timeout=timeout_hours*3600
+
+                condition_met = 0
+                measuring = True
+                while measuring:
+                    data = self.read_everything()
+                    for datum in data:
+                        f.write(str(datum))
+                        f.write(",")
+                    f.write("\n")
+                    f.flush()
+                    sleep(0.01)
+
+                    if abs(self.iPS.get_field()-B) < threshold:
+                        condition_met += 1
+                    else:
+                        condition_met = 0
+
+                    if condition_met >= 20:
+                        measuring=False
+                        print(f"Finished ramping magnet to {B} T")
+                        break
+                    if time()-time0 > timeout:
+                        measuring=False
+                        print("Timeout reached")
+                        break
+        return
+    
+    def ramp_B(self,filename,Bs,rates,threshold=0.005,timeout_hours=12):
+        filename = self.check_filename_duplicate(filename)
+
+        with open(filename,'w') as f:
+            print(f"Writing data to {filename}")
+            headers = self.get_headers()
+            for header in headers:
+                f.write(str(header))
+                f.write(",")
+
+            if type(Bs) is not list:
+                Ts=[Bs]
+            if type(rates) is not list:
+                rates=[rates for T in Ts]
+            if len(Bs) != len(rates):
+                print("Warning: length of B and rate lists are not equal")
+
+            for B,rate in zip(Bs,rates):
+                self.iPS.set_field(B,rate)
+                print(f"Ramping magnet to {B} T at {rate} T/min")
+
+                time0 = time()
+                timeout=timeout_hours*3600
+
+                condition_met = 0
+                measuring = True
+                while measuring:
+                    data = self.read_everything()
+                    for datum in data:
+                        f.write(str(datum))
+                        f.write(",")
+                    f.write("\n")
+                    f.flush()
+                    sleep(0.01)
+
+                    if abs(self.iPS.get_field()-B) < threshold:
+                        condition_met += 1
+                    else:
+                        condition_met = 0
+
+                    if condition_met >= 20:
+                        measuring=False
+                        print(f"Finished ramping magnet to {B} T")
+                        break
+                    if time()-time0 > timeout:
+                        measuring=False
+                        print("Timeout reached")
+                        break
+        return
+
+
+
+                
