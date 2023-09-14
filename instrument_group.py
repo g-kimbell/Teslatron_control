@@ -99,7 +99,7 @@ class InstrumentGroup():
             print("User interrupted measurement")
             pass
     
-    def ramp_T(self,filename,controller,Ts,rates,threshold=0.05,timeout_hours=12):
+    def ramp_T(self,filename,controller,Ts,rates,threshold=0.05,base_T_threshold=0.005,timeout_hours=12):
         filename = self.check_filename_duplicate(filename)
 
         with open(filename, 'w', newline='') as f:
@@ -132,6 +132,9 @@ class InstrumentGroup():
                 timeout=timeout_hours*3600
 
                 condition_met = 0
+                T_stopped = 0
+                prev_VTI_T=0
+                prev_probe_T=0
                 measuring = True
                 while measuring:
                     data = self.read_everything()
@@ -139,25 +142,46 @@ class InstrumentGroup():
                     f.flush()
                     sleep(0.01)
 
+                    probe_T = self.iTC.get_probe_temp()
+                    VTI_T = self.iTC.get_VTI_temp()
                     match controller:
                         case "probe":
-                            if abs(self.iTC.get_probe_temp()-T) < threshold:
+                            if abs(probe_T-T) < threshold:
                                 condition_met += 1
                             else:
                                 condition_met = 0
+                            if abs(probe_T-prev_probe_T) < base_T_threshold:
+                                T_stopped += 1
+                            else:
+                                T_stopped = 0
                         case "VTI":
-                            if abs(self.iTC.get_VTI_temp()-T) < threshold:
+                            if abs(VTI_T-T) < threshold:
                                 condition_met += 1
                             else:
                                 condition_met = 0
+                            if abs(VTI_T-prev_VTI_T) < base_T_threshold:
+                                T_stopped += 1
+                            else:
+                                T_stopped = 0
                         case "both":
-                            if (abs(self.iTC.get_probe_temp()-T) < threshold) and (abs(self.iTC.get_VTI_temp()-T) < threshold):
+                            if (abs(probe_T-T) < threshold) and (abs(VTI_T-T) < threshold):
                                 condition_met += 1
                             else:
                                 condition_met = 0
+                            if (abs(probe_T-prev_probe_T) < base_T_threshold) and (abs(VTI_T-prev_VTI_T) < base_T_threshold):
+                                T_stopped += 1
+                            else:
+                                T_stopped = 0
+                    prev_probe_T = probe_T
+                    prev_VTI_T = VTI_T
+
                     if condition_met >= 20:
                         measuring=False
                         print(f"Finished ramping {controller} to {T} K")
+                        break
+                    if T_stopped >= 20:
+                        measuring=False
+                        print(f"Reached base T in {controller} at {probe_T} K probe, {VTI_T} K VTI")
                         break
                     if time()-time0 > timeout:
                         measuring=False
@@ -165,18 +189,18 @@ class InstrumentGroup():
                         break
         return
     
-    def set_T(self,filename,controller,temp,threshold=0.05,timeout_hours=12):
+    def set_T(self,filename,controller,T,threshold=0.05,base_T_threshold=0.005,timeout_hours=12):
         match controller:
             case "probe":
-                self.iTC.set_probe_temp(temp)
+                self.iTC.set_probe_temp(T)
             case "VTI":
-                self.iTC.set_VTI_temp(temp)
+                self.iTC.set_VTI_temp(T)
             case "both":
-                self.iTC.set_probe_temp(temp)
-                self.iTC.set_VTI_temp(temp)
+                self.iTC.set_probe_temp(T)
+                self.iTC.set_VTI_temp(T)
             case _:
                 raise ValueError("Invalid controller, use 'probe', 'VTI', or 'both'")
-        print(f"Setting {controller} to {temp} K")
+        print(f"Setting {controller} to {T} K")
 
         time0 = time()
         timeout=timeout_hours*3600
@@ -189,6 +213,9 @@ class InstrumentGroup():
             writer.writerows([headers])
             
             condition_met = 0
+            T_stopped = 0
+            prev_VTI_T=0
+            prev_probe_T=0
             measuring = True
             while measuring:
                 data = self.read_everything()
@@ -196,28 +223,47 @@ class InstrumentGroup():
                 f.flush()
                 sleep(0.01)
                 
+                probe_T = self.iTC.get_probe_temp()
+                VTI_T = self.iTC.get_VTI_temp()
                 match controller:
                     case "probe":
-                        if abs(self.iTC.get_probe_temp()-temp) < threshold:
+                        if abs(probe_T-T) < threshold:
                             condition_met += 1
                         else:
                             condition_met = 0
+                        if abs(probe_T-prev_probe_T) < base_T_threshold:
+                            T_stopped += 1
+                        else:
+                            T_stopped = 0
                     case "VTI":
-                        if abs(self.iTC.get_VTI_temp()-temp) < threshold:
+                        if abs(VTI_T-T) < threshold:
                             condition_met += 1
                         else:
                             condition_met = 0
+                        if abs(VTI_T-prev_VTI_T) < base_T_threshold:
+                            T_stopped += 1
+                        else:
+                            T_stopped = 0
                     case "both":
-                        if (abs(self.iTC.get_probe_temp()-temp) < threshold) and (abs(self.iTC.get_VTI_temp()-temp) < threshold):
+                        if (abs(probe_T-T) < threshold) and (abs(VTI_T-T) < threshold):
                             condition_met += 1
                         else:
                             condition_met = 0
+                        if (abs(probe_T-prev_probe_T) < base_T_threshold) and (abs(VTI_T-prev_VTI_T) < base_T_threshold):
+                            T_stopped += 1
+                        else:
+                            T_stopped = 0
+                prev_probe_T = probe_T
+                prev_VTI_T = VTI_T
                         
                 if condition_met >= 20:
                     measuring=False
-                    print(f"Finished ramping {controller} to {temp} K")
+                    print(f"Reach {controller} setpoint at {T} K")
                     break
-
+                if T_stopped >= 20:
+                    measuring=False
+                    print(f"Reached base T in {controller} at {probe_T} K probe, {VTI_T} K VTI")
+                    break
                 if time()-time0 > timeout:
                     measuring=False
                     print("Timeout reached")
