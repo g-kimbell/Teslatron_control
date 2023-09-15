@@ -91,6 +91,13 @@ class InstrumentGroup():
             path = filename + "_" + str(i) + extension
             i+=1
         return path
+    
+    @staticmethod
+    def make_list(x):
+        if hasattr(x,'__iter__'):
+            return list(x)
+        else:
+            return [x]
         
     def measure_until_interrupted(self,filename,timeout_hours=18,comment=" "):
         try:
@@ -252,6 +259,34 @@ class InstrumentGroup():
     def set_T(self,filename,controller,T,**kwargs):
         self.ramp_T(filename,controller,T,0,**kwargs)
         return
+    
+    def ramp_heater(self,filename,probe_heater,VTI_heater,wait=0.1,comment=" "):
+        filename = self.check_filename_duplicate(filename)
+        probe_heater=self.make_list(probe_heater)
+        VTI_heater=self.make_list(VTI_heater)
+        if len(probe_heater)==1:
+            probe_heater = probe_heater*len(VTI_heater)
+        if len(VTI_heater)==1:
+            VTI_heater = VTI_heater*len(probe_heater)
+        if len(probe_heater)!=len(VTI_heater):
+                print("WARNING: Probe and VTI heater lists area a different length")
+
+        with open(filename, 'w', newline='') as f:
+            print(f"Writing data to {filename}")
+            writer = csv.writer(f)
+            writer.writerows([[str(ctime())],[f"Set Vg"],[comment],["[DATA]"]])
+            headers = self.get_headers()
+            writer.writerows([headers])
+            
+            for probe_heat,VTI_heat in zip(probe_heater,VTI_heater):
+                self.iTC.set_probe_heater(probe_heat)
+                self.iTC.set_VTI_heater(VTI_heat)
+                sleep(wait)
+                data = self.read_everything()
+                writer.writerows([data])
+                f.flush()
+            print(f"Finished ramping heater")
+
     
     def ramp_B(self,filename,Bs,rates,threshold=0.005,timeout_hours=18,comment=" "):
         filename = self.check_filename_duplicate(filename)
