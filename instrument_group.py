@@ -348,6 +348,10 @@ class InstrumentGroup():
             pass
 
     def set_Vg(self,filename,Vgs,compliance=5e-7,wait=0.1,comment=" "):
+        Vgs=self.make_list(Vgs)
+        if any([Vg>250 for Vg in Vgs]):
+            print("Gate setpoints exceed 250 V")
+            return
         try:
             filename = self.check_filename_duplicate(filename)
             with open(filename, 'w', newline='') as f:
@@ -356,24 +360,21 @@ class InstrumentGroup():
                 writer.writerows([[str(ctime())],[f"Set Vg"],[comment],["[DATA]"]])
                 headers = self.get_headers()
                 writer.writerows([headers])
-                
-                if type(Vgs) is not list:
-                    Vgs=[Vgs]
 
                 for _,Vsourcemeter in self.Vsourcemeters:
                     Vsourcemeter.set_compliance(compliance)
+                    Vsourcemeter.set_voltage(Vg[0])
+                    Vsourcemeter.turn_on()
 
                 time0=time()
                 for Vg in Vgs:
                     for _,Vsourcemeter in self.Vsourcemeters:
-                        if abs(Vg)<250:
-                            Vsourcemeter.set_voltage(Vg)
-                            sleep(wait)
-                            data = self.read_everything(time0=time0)
-                            writer.writerows([data])
-                            f.flush()
-                        else:
-                            print(f"Gate setpoint {Vg} V is larger than max 250 V")
+                        Vsourcemeter.set_voltage(Vg)
+                        sleep(wait)
+                        data = self.read_everything(time0=time0)
+                        writer.writerows([data])
+                        f.flush()
+
         except KeyboardInterrupt:
             print("User interrupted measurement")
             pass
