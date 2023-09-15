@@ -136,10 +136,10 @@ class InstrumentGroup():
             headers = self.get_headers()
             writer.writerows([headers])
 
-            if type(Ts) is not list:
-                Ts=[Ts]
-            if type(rates) is not list:
-                rates=[rates for T in Ts]
+            Ts = self.make_list(Ts)
+            rates = self.make_list(rates)
+            if len(rates)==1:
+                rates=rates*len(Ts)
             if len(Ts) != len(rates):
                 print("Warning: length of T and rate lists are not equal")
 
@@ -298,10 +298,10 @@ class InstrumentGroup():
             headers = self.get_headers()
             writer.writerows([headers])
 
-            if type(Bs) is not list:
-                Ts=[Bs]
-            if type(rates) is not list:
-                rates=[rates for T in Ts]
+            Bs = self.make_list(Bs)
+            rates = self.make_list(rates)
+            if len(rates)==1:
+                rates=rates*len(Bs)
             if len(Bs) != len(rates):
                 print("Warning: length of B and rate lists are not equal")
 
