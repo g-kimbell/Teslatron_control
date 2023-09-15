@@ -193,10 +193,10 @@ class InstrumentGroup():
                     match controller:
                         case "probe":
                             if abs(probe_T-T) < threshold:
-                                condition_met += 1
+                                T_reached += 1
                             else:
-                                condition_met = 0
-                            if abs(probe_T-prev_probe_T) < base_T_threshold:
+                                T_reached = 0
+                            if abs(probe_diff) < base_T_threshold:
                                 T_stopped += 1
                             else:
                                 T_stopped = 0
@@ -206,10 +206,10 @@ class InstrumentGroup():
                                 T_diff_sign_change = 0
                         case "VTI":
                             if abs(VTI_T-T) < threshold:
-                                condition_met += 1
+                                T_reached += 1
                             else:
-                                condition_met = 0
-                            if abs(VTI_T-prev_VTI_T) < base_T_threshold:
+                                T_reached = 0
+                            if abs(VTI_diff) < base_T_threshold:
                                 T_stopped += 1
                             else:
                                 T_stopped = 0
@@ -219,10 +219,10 @@ class InstrumentGroup():
                                 T_diff_sign_change = 0
                         case "both":
                             if (abs(probe_T-T) < threshold) and (abs(VTI_T-T) < threshold):
-                                condition_met += 1
+                                T_reached += 1
                             else:
-                                condition_met = 0
-                            if (abs(probe_T-prev_probe_T) < base_T_threshold) and (abs(VTI_T-prev_VTI_T) < base_T_threshold):
+                                T_reached = 0
+                            if (abs(probe_diff) < base_T_threshold) and (abs(VTI_diff) < base_T_threshold):
                                 T_stopped += 1
                             else:
                                 T_stopped = 0
@@ -235,7 +235,7 @@ class InstrumentGroup():
                     prev_probe_diff = probe_diff
                     prev_VTI_diff = VTI_diff
 
-                    if (T_reached >= 50) and (T_diff_sign_change==1) and (time()-time0 > min_time):
+                    if (T_reached >= 30) and (T_diff_sign_change==1) and (time()-time0 > min_time):
                         measuring=False
                         print(f"Finished ramping {controller} to {T} K")
                         break
@@ -271,13 +271,14 @@ class InstrumentGroup():
                 print("Warning: length of B and rate lists are not equal")
 
             for B,rate in zip(Bs,rates):
+                min_time = 60*abs(B-self.iPS.get_field())/rate
                 self.iPS.set_field(B,rate)
                 print(f"Ramping magnet to {B} T at {rate} T/min")
 
                 time0 = time()
                 timeout=timeout_hours*3600
 
-                condition_met = 0
+                B_reached = 0
                 measuring = True
                 while measuring:
                     data = self.read_everything()
@@ -286,11 +287,11 @@ class InstrumentGroup():
                     sleep(0.01)
 
                     if abs(self.iPS.get_field()-B) < threshold:
-                        condition_met += 1
+                        B_reached += 1
                     else:
-                        condition_met = 0
+                        B_reached = 0
 
-                    if condition_met >= 10:
+                    if (B_reached >= 10) and (time()-time0 > min_time):
                         measuring=False
                         print(f"Finished ramping magnet to {B} T")
                         break
