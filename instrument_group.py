@@ -28,7 +28,7 @@ class InstrumentGroup():
             headers.append(f"V-_{name} (V)")
         for Iname,sourcemeter in self.sourcemeters:
             for Vname,voltmeter in self.voltmeters:
-                headers.append(f"R_{Iname}{Vname} (V)")
+                headers.append(f"R_{Iname}{Vname} (ohm)")
         return headers
 
     def read_everything(self):
@@ -76,6 +76,12 @@ class InstrumentGroup():
                 except:
                     data += [np.nan]
         return data
+    
+    def print_current_vals(self):
+        headers=self.get_headers()
+        data=self.read_everything()
+        for header,datum in zip(headers,data):
+            print(f"{header}: {datum}")
 
     @staticmethod
     def check_filename_duplicate(path):
@@ -86,7 +92,7 @@ class InstrumentGroup():
             i+=1
         return path
         
-    def measure_until_interrupted(self,filename,timeout_hours=12):
+    def measure_until_interrupted(self,filename,timeout_hours=18,comment=" "):
         try:
             time0 = time()
             timeout=timeout_hours*3600
@@ -94,7 +100,7 @@ class InstrumentGroup():
             with open(filename, 'w', newline='') as f:
                 print(f"Writing data to {filename}")
                 writer = csv.writer(f)
-                writer.writerows([[str(ctime())],["Continuous measurement"],["[DATA]"]])
+                writer.writerows([[str(ctime())],["Continuous measurement"],[comment],["[DATA]"]])
                 headers = self.get_headers()
                 writer.writerows([headers])
                 measuring=True
@@ -113,13 +119,13 @@ class InstrumentGroup():
             print("User interrupted measurement")
             pass
     
-    def ramp_T(self,filename,controller,Ts,rates,threshold=0.05,base_T_threshold=0.005,timeout_hours=12):
+    def ramp_T(self,filename,controller,Ts,rates,threshold=0.05,base_T_threshold=0.001,timeout_hours=18,comment=" "):
         filename = self.check_filename_duplicate(filename)
 
         with open(filename, 'w', newline='') as f:
             print(f"Writing data to {filename}")
             writer = csv.writer(f)
-            writer.writerows([[str(ctime())],[f"Ramp {controller} T"],["[DATA]"]])
+            writer.writerows([[str(ctime())],[f"Ramp {controller} T"],[comment],["[DATA]"]])
             headers = self.get_headers()
             writer.writerows([headers])
 
@@ -131,25 +137,48 @@ class InstrumentGroup():
                 print("Warning: length of T and rate lists are not equal")
 
             for T,rate in zip(Ts,rates):
-                match controller:
-                    case "probe":
-                        self.iTC.ramp_probe_temp(T,rate)
-                    case "VTI":
-                        self.iTC.ramp_VTI_temp(T,rate)
-                    case "both":
-                        self.iTC.ramp_probe_temp(T,rate)
-                        self.iTC.ramp_VTI_temp(T,rate)
-                    case _:
-                        raise ValueError("Invalid controller. Use 'probe', 'VTI', or 'both'")
-                print(f"Ramping {controller} to {T} K at {rate} K/min")
+                if (rate==0) or (rate==np.nan) or (rate==np.inf):
+                    match controller:
+                        case "probe":
+                            self.iTC.set_probe_temp(T)
+                        case "VTI":
+                            self.iTC.set_VTI_temp(T)
+                        case "both":
+                            self.iTC.set_probe_temp(T)
+                            self.iTC.set_VTI_temp(T)
+                        case _:
+                            raise ValueError("Invalid controller, use 'probe', 'VTI', or 'both'")
+                    print(f"Setting {controller} to {T} K")
+                    min_time=120
+                else:
+                    match controller:
+                        case "probe":
+                            min_time = 60*abs(T-self.iTC.get_probe_temp())/rate
+                            self.iTC.ramp_probe_temp(T,rate)
+                        case "VTI":
+                            min_time = 60*abs(T-self.iTC.get_VTI_temp())/rate
+                            self.iTC.ramp_VTI_temp(T,rate)
+                        case "both":
+                            min_time = max(60*abs(T-self.iTC.get_VTI_temp())/rate,60*abs(T-self.iTC.get_probe_temp())/rate)
+                            self.iTC.ramp_probe_temp(T,rate)
+                            self.iTC.ramp_VTI_temp(T,rate)
+                        case _:
+                            raise ValueError("Invalid controller. Use 'probe', 'VTI', or 'both'")
+                    print(f"Ramping {controller} to {T} K at {rate} K/min")
+                    
 
                 time0 = time()
                 timeout=timeout_hours*3600
 
-                condition_met = 0
+                T_reached = 0
                 T_stopped = 0
+                T_diff_sign_change = 0
+
                 prev_VTI_T=0
+                prev_VTI_diff=0
                 prev_probe_T=0
+                prev_probe_diff=0
+
                 measuring = True
                 while measuring:
                     data = self.read_everything()
@@ -159,6 +188,8 @@ class InstrumentGroup():
 
                     probe_T = self.iTC.get_probe_temp()
                     VTI_T = self.iTC.get_VTI_temp()
+                    probe_diff = probe_T - prev_probe_T
+                    VTI_diff = VTI_T - prev_VTI_T
                     match controller:
                         case "probe":
                             if abs(probe_T-T) < threshold:
@@ -169,6 +200,10 @@ class InstrumentGroup():
                                 T_stopped += 1
                             else:
                                 T_stopped = 0
+                            if probe_diff*prev_probe_diff<0:
+                                T_diff_sign_change = 1
+                            else:
+                                T_diff_sign_change = 0
                         case "VTI":
                             if abs(VTI_T-T) < threshold:
                                 condition_met += 1
@@ -178,6 +213,10 @@ class InstrumentGroup():
                                 T_stopped += 1
                             else:
                                 T_stopped = 0
+                            if VTI_diff*prev_VTI_diff<0:
+                                T_diff_sign_change = 1
+                            else:
+                                T_diff_sign_change = 0
                         case "both":
                             if (abs(probe_T-T) < threshold) and (abs(VTI_T-T) < threshold):
                                 condition_met += 1
@@ -187,14 +226,20 @@ class InstrumentGroup():
                                 T_stopped += 1
                             else:
                                 T_stopped = 0
+                            if (probe_diff*prev_probe_diff<0) and (VTI_diff*prev_VTI_diff<0):
+                                T_diff_sign_change = 1
+                            else:
+                                T_diff_sign_change = 0
                     prev_probe_T = probe_T
                     prev_VTI_T = VTI_T
+                    prev_probe_diff = probe_diff
+                    prev_VTI_diff = VTI_diff
 
-                    if condition_met >= 20:
+                    if (T_reached >= 50) and (T_diff_sign_change==1) and (time()-time0 > min_time):
                         measuring=False
                         print(f"Finished ramping {controller} to {T} K")
                         break
-                    if T_stopped >= 20:
+                    if (T_stopped >= 50) and (T_diff_sign_change==1) and (time()-time0 > min_time):
                         measuring=False
                         print(f"Reached base T in {controller} at {probe_T} K probe, {VTI_T} K VTI")
                         break
@@ -204,95 +249,17 @@ class InstrumentGroup():
                         break
         return
     
-    def set_T(self,filename,controller,T,threshold=0.05,base_T_threshold=0.005,timeout_hours=12):
-        match controller:
-            case "probe":
-                self.iTC.set_probe_temp(T)
-            case "VTI":
-                self.iTC.set_VTI_temp(T)
-            case "both":
-                self.iTC.set_probe_temp(T)
-                self.iTC.set_VTI_temp(T)
-            case _:
-                raise ValueError("Invalid controller, use 'probe', 'VTI', or 'both'")
-        print(f"Setting {controller} to {T} K")
-
-        time0 = time()
-        timeout=timeout_hours*3600
-
-        filename = self.check_filename_duplicate(filename)
-        with open(filename, 'w', newline='') as f:
-            print(f"Writing data to {filename}")
-            writer = csv.writer(f)
-            writer.writerows([[str(ctime())],[f"Set {controller} T"],["[DATA]"]])
-            headers = self.get_headers()
-            writer.writerows([headers])
-            
-            condition_met = 0
-            T_stopped = 0
-            prev_VTI_T=0
-            prev_probe_T=0
-            measuring = True
-            while measuring:
-                data = self.read_everything()
-                writer.writerows([data])
-                f.flush()
-                sleep(0.01)
-                
-                probe_T = self.iTC.get_probe_temp()
-                VTI_T = self.iTC.get_VTI_temp()
-                match controller:
-                    case "probe":
-                        if abs(probe_T-T) < threshold:
-                            condition_met += 1
-                        else:
-                            condition_met = 0
-                        if abs(probe_T-prev_probe_T) < base_T_threshold:
-                            T_stopped += 1
-                        else:
-                            T_stopped = 0
-                    case "VTI":
-                        if abs(VTI_T-T) < threshold:
-                            condition_met += 1
-                        else:
-                            condition_met = 0
-                        if abs(VTI_T-prev_VTI_T) < base_T_threshold:
-                            T_stopped += 1
-                        else:
-                            T_stopped = 0
-                    case "both":
-                        if (abs(probe_T-T) < threshold) and (abs(VTI_T-T) < threshold):
-                            condition_met += 1
-                        else:
-                            condition_met = 0
-                        if (abs(probe_T-prev_probe_T) < base_T_threshold) and (abs(VTI_T-prev_VTI_T) < base_T_threshold):
-                            T_stopped += 1
-                        else:
-                            T_stopped = 0
-                prev_probe_T = probe_T
-                prev_VTI_T = VTI_T
-                        
-                if condition_met >= 20:
-                    measuring=False
-                    print(f"Reach {controller} setpoint at {T} K")
-                    break
-                if T_stopped >= 20:
-                    measuring=False
-                    print(f"Reached base T in {controller} at {probe_T} K probe, {VTI_T} K VTI")
-                    break
-                if time()-time0 > timeout:
-                    measuring=False
-                    print("Timeout reached")
-                    break
+    def set_T(self,filename,controller,T,**kwargs):
+        self.ramp_T(filename,controller,T,0,**kwargs)
         return
     
-    def ramp_B(self,filename,Bs,rates,threshold=0.005,timeout_hours=12):
+    def ramp_B(self,filename,Bs,rates,threshold=0.005,timeout_hours=18,comment=" "):
         filename = self.check_filename_duplicate(filename)
 
         with open(filename, 'w', newline='') as f:
             print(f"Writing data to {filename}")
             writer = csv.writer(f)
-            writer.writerows([[str(ctime())],[f"Ramp magnetic field"],["[DATA]"]])
+            writer.writerows([[str(ctime())],[f"Ramp magnetic field"],[comment],["[DATA]"]])
             headers = self.get_headers()
             writer.writerows([headers])
 
@@ -323,7 +290,7 @@ class InstrumentGroup():
                     else:
                         condition_met = 0
 
-                    if condition_met >= 5:
+                    if condition_met >= 10:
                         measuring=False
                         print(f"Finished ramping magnet to {B} T")
                         break
@@ -333,12 +300,12 @@ class InstrumentGroup():
                         break
         return
 
-    def set_Vg(self,filename,Vgs,compliance=5e-7,wait=0.1):
+    def set_Vg(self,filename,Vgs,compliance=5e-7,wait=0.1,comment=" "):
         filename = self.check_filename_duplicate(filename)
         with open(filename, 'w', newline='') as f:
             print(f"Writing data to {filename}")
             writer = csv.writer(f)
-            writer.writerows([[str(ctime())],[f"Set Vg"],["[DATA]"]])
+            writer.writerows([[str(ctime())],[f"Set Vg"],[comment],["[DATA]"]])
             headers = self.get_headers()
             writer.writerows([headers])
             
@@ -369,12 +336,12 @@ class InstrumentGroup():
         else:
             print(f"Current setpoint {I} A is larger than max 1e-4 A")
     
-    def perform_IV(self,filename,Is,compliance=5,wait=0.1):
+    def perform_IV(self,filename,Is,compliance=5,wait=0.1,comment=" "):
         filename = self.check_filename_duplicate(filename)
         with open(filename, 'w', newline='') as f:
             print(f"Writing data to {filename}")
             writer = csv.writer(f)
-            writer.writerows([[str(ctime())],[f"Measure IV"],["[DATA]"]])
+            writer.writerows([[str(ctime())],[f"Measure IV"],[comment],["[DATA]"]])
             headers = self.get_headers()
             writer.writerows([headers])
             
