@@ -31,11 +31,11 @@ class InstrumentGroup():
                 headers.append(f"R_{Iname}{Vname} (ohm)")
         return headers
 
-    def read_everything(self):
+    def read_everything(self,time0=0):
         Is = []
         Vps = []
         Vns = []
-        data = [time()]
+        data = [time()-time0]
         for name,voltmeter in self.voltmeters:
             voltmeter.start_voltage_measurement()
         if self.iTC:
@@ -112,7 +112,7 @@ class InstrumentGroup():
                 writer.writerows([headers])
                 measuring=True
                 while measuring:
-                    data = self.read_everything()
+                    data = self.read_everything(time0=time0)
                     writer.writerows([data])
                     f.flush()
                     sleep(0.01)
@@ -128,7 +128,6 @@ class InstrumentGroup():
     
     def ramp_T(self,filename,controller,Ts,rates,threshold=0.05,base_T_threshold=0.001,timeout_hours=18,comment=" "):
         filename = self.check_filename_duplicate(filename)
-
         with open(filename, 'w', newline='') as f:
             print(f"Writing data to {filename}")
             writer = csv.writer(f)
@@ -186,9 +185,10 @@ class InstrumentGroup():
                 prev_probe_T=0
                 prev_probe_diff=0
 
+                time0=time()
                 measuring = True
                 while measuring:
-                    data = self.read_everything()
+                    data = self.read_everything(time0=time0)
                     writer.writerows([data])
                     f.flush()
                     sleep(0.01)
@@ -277,12 +277,13 @@ class InstrumentGroup():
             writer.writerows([[str(ctime())],[f"Set Vg"],[comment],["[DATA]"]])
             headers = self.get_headers()
             writer.writerows([headers])
-            
+
+            time0=time()
             for probe_heat,VTI_heat in zip(probe_heater,VTI_heater):
                 self.iTC.set_probe_heater(probe_heat)
                 self.iTC.set_VTI_heater(VTI_heat)
                 sleep(wait)
-                data = self.read_everything()
+                data = self.read_everything(time0=time0)
                 writer.writerows([data])
                 f.flush()
             print(f"Finished ramping heater")
@@ -316,7 +317,7 @@ class InstrumentGroup():
                 B_reached = 0
                 measuring = True
                 while measuring:
-                    data = self.read_everything()
+                    data = self.read_everything(time0=time0)
                     writer.writerows([data])
                     f.flush()
                     sleep(0.01)
@@ -350,13 +351,14 @@ class InstrumentGroup():
 
             for _,Vsourcemeter in self.Vsourcemeters:
                 Vsourcemeter.set_compliance(compliance)
-            
+
+            time0=time()
             for Vg in Vgs:
                 for _,Vsourcemeter in self.Vsourcemeters:
                     if abs(Vg)<250:
                         Vsourcemeter.set_voltage(Vg)
                         sleep(wait)
-                        data = self.read_everything()
+                        data = self.read_everything(time0=time0)
                         writer.writerows([data])
                         f.flush()
                     else:
@@ -386,12 +388,13 @@ class InstrumentGroup():
                 sourcemeter.set_current(Is[0])
                 sourcemeter.turn_on()
             
+            time0=time()
             for I in Is:
                 if abs(I)<=1e-4:
                     for _,sourcemeter in self.sourcemeters:
                         sourcemeter.set_current(I)
                         sleep(wait)
-                        data = self.read_everything()
+                        data = self.read_everything(time0=time0)
                         writer.writerows([data])
                         f.flush()
                 else:
