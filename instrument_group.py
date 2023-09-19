@@ -20,7 +20,7 @@ class InstrumentGroup():
         for name,sourcemeter in self.sourcemeters:
             headers.append(f"I_{name} (A)")
         for name,Vsourcemeter in self.Vsourcemeters:
-            headers.append(f"_Vg_{name} (V)")
+            headers.append(f"Vg_{name} (V)")
             headers.append(f"Ileak_{name} (A)")
         for name,voltmeter in self.voltmeters:
             headers.append(f"V+_{name} (V)")
@@ -82,6 +82,7 @@ class InstrumentGroup():
         data=self.read_everything()
         for header,datum in zip(headers,data):
             print(f"{header}: {datum}")
+        return
 
     @staticmethod
     def check_filename_duplicate(path):
@@ -106,6 +107,7 @@ class InstrumentGroup():
             filename = self.check_filename_duplicate(filename)
             with open(filename, 'w', newline='') as f:
                 print(f"Writing data to {filename}")
+                print("Measuring continuously")
                 writer = csv.writer(f)
                 writer.writerows([[str(ctime())],["Continuous measurement"],[comment],["[DATA]"]])
                 headers = self.get_headers()
@@ -121,6 +123,7 @@ class InstrumentGroup():
                         measuring=False
                         print("Timeout reached")
                         break
+            return
         except KeyboardInterrupt:
             print("User interrupted measurement")
             pass
@@ -277,6 +280,7 @@ class InstrumentGroup():
 
             with open(filename, 'w', newline='') as f:
                 print(f"Writing data to {filename}")
+                print("Ramping heaters")
                 writer = csv.writer(f)
                 writer.writerows([[str(ctime())],[f"Set Vg"],[comment],["[DATA]"]])
                 headers = self.get_headers()
@@ -290,7 +294,8 @@ class InstrumentGroup():
                     data = self.read_everything(time0=time0)
                     writer.writerows([data])
                     f.flush()
-                print(f"Finished ramping heater")
+                print(f"Finished ramping heaters")
+            return
         except KeyboardInterrupt:
             print("User interrupted measurement")
             pass
@@ -356,6 +361,7 @@ class InstrumentGroup():
             filename = self.check_filename_duplicate(filename)
             with open(filename, 'w', newline='') as f:
                 print(f"Writing data to {filename}")
+                print("Setting gate voltages")
                 writer = csv.writer(f)
                 writer.writerows([[str(ctime())],[f"Set Vg"],[comment],["[DATA]"]])
                 headers = self.get_headers()
@@ -363,7 +369,7 @@ class InstrumentGroup():
 
                 for _,Vsourcemeter in self.Vsourcemeters:
                     Vsourcemeter.set_compliance(compliance)
-                    Vsourcemeter.set_voltage(Vg[0])
+                    Vsourcemeter.set_voltage(Vgs[0])
                     Vsourcemeter.turn_on()
 
                 time0=time()
@@ -374,7 +380,8 @@ class InstrumentGroup():
                         data = self.read_everything(time0=time0)
                         writer.writerows([data])
                         f.flush()
-
+                print("Finished setting gate voltages")
+            return
         except KeyboardInterrupt:
             print("User interrupted measurement")
             pass
@@ -394,6 +401,7 @@ class InstrumentGroup():
             filename = self.check_filename_duplicate(filename)
             with open(filename, 'w', newline='') as f:
                 print(f"Writing data to {filename}")
+                print("Performing IV measurement")
                 writer = csv.writer(f)
                 writer.writerows([[str(ctime())],[f"Measure IV"],[comment],["[DATA]"]])
                 headers = self.get_headers()
@@ -415,6 +423,8 @@ class InstrumentGroup():
                             f.flush()
                     else:
                         print(f"Current setpoint {I} A is larger than max 1e-4 A")
+                print("Finished IV measurement")
+            return
         except KeyboardInterrupt:
             print("User interrupted measurement")
             pass
