@@ -12,9 +12,12 @@ class InstrumentGroup():
         self.iPS = iPS
 
     def get_headers(self):
+        """Returns a list of headers for the data file"""
         headers = ["Time"]
         if self.iTC:
-            headers += ["T_probe (K)", "T_probe_setpoint (K)", "T_probe_ramp_rate (K/min)", "heater_probe (%)", "T_VTI (K)", "T_VTI_setpoint (K)", "T_VTI_ramp_rate (K/min)", "heater_VTI (%)","Pressure (mB)","Needlevalve"]
+            headers += ["T_probe (K)", "T_probe_setpoint (K)", "T_probe_ramp_rate (K/min)", 
+                        "heater_probe (%)", "T_VTI (K)", "T_VTI_setpoint (K)", "T_VTI_ramp_rate (K/min)", 
+                        "heater_VTI (%)","Pressure (mB)","Needlevalve"]
         if self.iPS:
             headers += ["B (T)", "B_setpoint (T)", "B_ramp_rate (T/min)"]
         for name,sourcemeter in self.sourcemeters:
@@ -32,6 +35,7 @@ class InstrumentGroup():
         return headers
 
     def read_everything(self,time0=0):
+        """Collects data from all instruments and returns a list"""
         Is = []
         Vps = []
         Vns = []
@@ -86,6 +90,8 @@ class InstrumentGroup():
 
     @staticmethod
     def check_filename_duplicate(path):
+        """Checks if a file already exists, and if so, appends a number to the 
+        end of the filename."""
         filename,extension = os.path.splitext(path)
         i=1
         while os.path.isfile(path):
@@ -95,12 +101,32 @@ class InstrumentGroup():
     
     @staticmethod
     def make_list(x):
+        """Converts a single value to a list, returns x as a list if it is 
+        already a list or numpy array."""
         if hasattr(x,'__iter__'):
             return list(x)
         else:
             return [x]
         
     def measure_until_interrupted(self,filename,timeout_hours=18,comment=" "):
+        """Measures data until the user interrupts the measurement with Ctrl+C, 
+        stop, or the timeout is reached.
+        
+        Parameters
+        ----------
+        filename : str
+            The name of the file to write the data to. If a file with the same 
+            name already exists, a number will be appended to the end.
+        timeout_hours : float, optional
+            The number of hours to measure for before stopping. Default is 12.
+        comment : str, optional
+            A comment to write to the file header.
+
+        Returns
+        -------
+        None
+            Data is written to a file.
+        """
         try:
             time0 = time()
             timeout=timeout_hours*3600
@@ -129,6 +155,44 @@ class InstrumentGroup():
             pass
     
     def ramp_T(self,filename,controller,Ts,rates,threshold=0.05,base_T_threshold=0.001,timeout_hours=18,comment=" "):
+        """Ramps the temperature and records data continuously to a file.
+        
+        The ramp is considered complete when the temperature is within the 
+        threshold of the setpoint (temperature is within setpoint +- threshold 
+        for for 20 consecutive measurements), or when the temperature has not 
+        changed by more than the base_T_threshold for 20 consecutive 
+        measurements (the temperature is not changing, can occur if the set 
+        point is below the base temperature).
+
+        Parameters
+        ----------
+        filename : str
+            The name of the file to write the data to. If a file with the same 
+            name already exists, a number will be appended to the end.
+        controller : str
+            The temperature controller to ramp.
+            Must be either 'probe', 'VTI', or 'both'.
+        Ts : float or list of floats or numpy array of floats
+            The setpoint temperature(s) in K.
+        rates : float or list of floats
+            The ramp rate(s) in K/min.
+        threshold : float, optional
+            The threshold within which temperature to be considered at the 
+            setpoint. The default is 0.05 K.
+        base_T_threshold : float, optional
+            The threshold for consecutive temperatures to be considered not 
+            changing. The default is 0.005 K.
+        timeout_hours : float, optional
+            The number of hours to measure for before stopping. Default is 12.
+            The timeout is reset for each setpoint.
+        comment : str, optional
+            A comment to write to the file header.
+        
+        Returns
+        -------
+        None
+            Data is written to a file.
+        """
         try:
             filename = self.check_filename_duplicate(filename)
             with open(filename, 'w', newline='') as f:
@@ -263,10 +327,56 @@ class InstrumentGroup():
             pass
     
     def set_T(self,filename,controller,T,**kwargs):
+        """Sets the temperature and records data continuously to a file.
+        
+        Parameters
+        ----------
+        filename : str
+            The name of the file to write the data to. If a file with the same 
+            name already exists, a number will be appended to the end.
+        controller : str
+            The temperature controller to ramp.
+            Must be either 'probe', 'VTI', or 'both'.
+        T : float or list of floats or numpy array of floats
+            The setpoint temperature(s) in K.
+        **kwargs : dict
+            Keyword arguments to pass to ramp_T. See ramp_T for more details.
+        
+        Returns
+        -------
+        None
+            Data is written to a file.
+        """
         self.ramp_T(filename,controller,T,0,**kwargs)
         return
     
     def ramp_heater(self,filename,probe_heater,VTI_heater,wait=0.1,comment=" "):
+        """Ramps the heaters and records one datapoint per setpoint to a file.
+
+        The heater power is iterated through the list of setpoints and the 
+        temperature is recorded at each setpoint. There is no continuous ramping
+        of the heaters whilst recording data. For a slower ramp, use a long wait
+        time or small heater power step.
+
+        Parameters
+        ----------
+        filename : str
+            The name of the file to write the data to. If a file with the same 
+            name already exists, a number will be appended to the end.
+        probe_heater : float or list of floats or numpy array of floats
+            The setpoint heater power(s) for the probe in %.
+        VTI_heater : float or list of floats or numpy array of floats
+            The setpoint heater power(s) for the VTI in %.
+        wait : float, optional
+            The time to wait between measurements in seconds. Default is 0.1.
+        comment : str, optional
+            A comment to write to the file.
+
+        Returns
+        -------
+        None
+            Data is written to a file.
+        """
         try:
             filename = self.check_filename_duplicate(filename)
             probe_heater=self.make_list(probe_heater)
@@ -302,6 +412,36 @@ class InstrumentGroup():
 
     
     def ramp_B(self,filename,Bs,rates,threshold=0.005,timeout_hours=18,comment=" "):
+        """Ramps the magnetic field and records data continuously to a file.
+
+        The ramp is considered complete when the magnetic field is within the
+        threshold of the setpoint (magnetic field is within setpoint +- 
+        threshold for for 10 consecutive measurements).
+
+        Parameters
+        ----------
+        filename : str
+            The name of the file to write the data to. If a file with the same 
+            name already exists, a number will be appended to the end.
+        Bs : float or list of floats or numpy array of floats
+            The setpoint magnetic field(s) in T.
+        rates : float or list of floats
+            The ramp rate(s) in T/min.
+        threshold : float, optional
+            The threshold within which magnetic field to be considered at the 
+            setpoint. The default is 0.005 T.
+        timeout_hours : float, optional
+            The number of hours to measure before the measurement times out. 
+            Useful in case the set point is never reached. The default is 18. 
+            The timeout is reset for each setpoint.
+        comment : str, optional
+            A comment to write to the file header.
+
+        Returns
+        -------
+        None
+            Data is written to a file.
+        """
         try:
             filename = self.check_filename_duplicate(filename)
             with open(filename, 'w', newline='') as f:
@@ -353,6 +493,29 @@ class InstrumentGroup():
             pass
 
     def set_Vg(self,filename,Vgs,compliance=5e-7,wait=0.1,comment=" "):
+        """
+        Sets the gate voltage and records one datapoint per setpoint to a file.
+        
+        Parameters
+        ----------
+        filename : str
+            The name of the file to write the data to. If a file with the same 
+            name already exists, a number will be appended to the end of the 
+            filename.
+        Vgs : float or list of floats or numpy array of floats
+            The setpoint gate voltage(s) in V.
+        compliance : float, optional
+            The compliance current in A. The default is 5e-7.
+        wait : float, optional
+            Time to wait between measurements in seconds. The default is 0.1.
+        comment : str, optional
+            A comment to write to the file. The default is " ".
+                
+        Returns
+        -------
+        None
+            Data is written to a file.
+        """
         Vgs=self.make_list(Vgs)
         if any([Vg>250 for Vg in Vgs]):
             print("Gate setpoints exceed 250 V")
@@ -387,6 +550,19 @@ class InstrumentGroup():
             pass
 
     def set_current(self,I,compliance=5):
+        """Sets the current without recording data.
+
+        Parameters
+        ----------
+        I : float
+            The setpoint current in A. The maximum allowed is 1e-4 A.
+        compliance : float, optional
+            The compliance current in A. The default is 5e-7.
+
+        Returns
+        -------
+        None
+        """
         print(f"Setting current to {I}, compliance {compliance}")
         if abs(I)<=1e-4:
             for _,sourcemeter in self.sourcemeters:
@@ -397,6 +573,28 @@ class InstrumentGroup():
             print(f"Current setpoint {I} A is larger than max 1e-4 A")
     
     def perform_IV(self,filename,Is,compliance=5,wait=0.1,comment=" "):
+        """Changes the current, records one datapoint per setpoint to a file.
+        
+        Parameters
+        ----------
+        filename : str
+            The name of the file to write the data to. If a file with the same
+            name already exists, a number will be appended to the end of the 
+            filename.
+        Is : float or list of floats or numpy array of floats
+            The setpoint current(s) in A. The maximum allowed is 1e-4 A.
+        compliance : float, optional
+            The compliance current in A. Default is 5e-7.
+        wait : float, optional
+            The time to wait between measurements in seconds. Default is 0.1.
+        comment : str, optional
+            A comment to write to the file header.
+                
+        Returns
+        -------
+        None
+            Data is written to a file.
+        """
         try:
             filename = self.check_filename_duplicate(filename)
             with open(filename, 'w', newline='') as f:
@@ -428,10 +626,3 @@ class InstrumentGroup():
         except KeyboardInterrupt:
             print("User interrupted measurement")
             pass
-
-    
-
-
-
-
-                
