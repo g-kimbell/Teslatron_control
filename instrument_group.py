@@ -4,7 +4,35 @@ import os
 import csv
 
 class InstrumentGroup():
+    """A class for controlling a group of instruments and recording data."""
     def __init__(self, voltmeters, sourcemeters, Vsourcemeters, iTC, iPS):
+        """Initializes the InstrumentGroup class.
+        
+        Parameters
+        ----------
+        voltmeters : list of tuples
+            A list of tuples containing the name and voltmeter object for each
+            voltmeter. The name is a string, and the voltmeter object is an
+            instance of the Voltmeter class.
+        sourcemeters : list of tuples
+            A list of tuples containing the name and sourcemeter object for each
+            sourcemeter. The name is a string, and the sourcemeter object is an
+            instance of the Sourcemeter class.
+        Vsourcemeters : list of tuples
+            A list of tuples containing the name and Vsourcemeter object for 
+            each Vsourcemeter. The name is a string, and the Vsourcemeter object
+            is an instance of the Vsourcemeter class.
+        iTC : MercuryiTC object
+            An instance of the MercuryiTC class, the temperature controller for 
+            the Teslatron system.
+        iPS : MercuryiPS object
+            An instance of the MercuryiPS class, the magnet power supply for the
+            Teslatron system.
+        
+        Returns
+        -------
+        None
+        """
         self.voltmeters = voltmeters
         self.sourcemeters = sourcemeters
         self.Vsourcemeters = Vsourcemeters
@@ -82,6 +110,7 @@ class InstrumentGroup():
         return data
     
     def print_current_vals(self):
+        """Make one measurement from every instrument and print the values"""
         headers=self.get_headers()
         data=self.read_everything()
         for header,datum in zip(headers,data):
