@@ -7,4 +7,6 @@ The aim of the tool is to extend the capabilities of the instrument beyond the e
 - allowing temperature sweeps by sweeping heater power directly
 - giving the ability to write more complicated measurement programs through a script
 
-The tool is currently at an early stage of development.
+Currently the best way to control the Teslatron is to write a measurement script as a .py or (preferably) .ipynb Jupyter notebook file.
+
+Please see the example_measurement_script.ipynb to see how one can write and execute a measurement script on the Teslatron system.
