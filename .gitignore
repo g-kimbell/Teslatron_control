@@ -2,4 +2,4 @@ __pycache__
 test*
 *.log
 *.ipynb
-!example_meausrement_script.ipynb
+!example_measurement_script.ipynb
