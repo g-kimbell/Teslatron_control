@@ -2,6 +2,27 @@ from time import ctime, time, sleep
 import numpy as np
 import os
 import csv
+import io
+
+class ConditionalFileWriter:
+    def __init__(self, filename, should_write):
+        filename,extension = os.path.splitext(path)
+        i=1
+        while os.path.isfile(path):
+            path = filename + "_" + str(i) + extension
+            i+=1
+        self.filename = filename
+        self.should_write = should_write
+
+    def __enter__(self):
+        if self.should_write:
+            self.file = open(self.filename, 'w', newline='')
+        else:
+            self.file = io.StringIO()
+        return self.file
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.file.close()
 
 class InstrumentGroup():
     """A class for controlling a group of instruments and recording data."""
@@ -42,6 +63,19 @@ class InstrumentGroup():
         self.iTC = kwargs.get("iTC", None)
         self.iPS = kwargs.get("iPS", None)
         self.lakeshore = kwargs.get("lakeshore", None)
+        self.comment = kwargs.get("comment", " ")
+        self.filename = kwargs.get("filename", "You_forgot_to_set_a_filename.txt")
+        self.measure = kwargs.get("measure", True)
+
+    def set_filename(self,filename):
+        self.filename = filename
+        self.measure = True
+    
+    def set_comment(self,comment):
+        self.comment = comment
+    
+    def dont_measure(self,measure):
+        self.measure = False
 
     def get_headers(self):
         """Returns a list of headers for the data file"""
@@ -124,17 +158,6 @@ class InstrumentGroup():
         for header,datum in zip(headers,data):
             print(f"{header}: {datum}")
         return
-
-    @staticmethod
-    def check_filename_duplicate(path):
-        """Checks if a file already exists, and if so, appends a number to the 
-        end of the filename."""
-        filename,extension = os.path.splitext(path)
-        i=1
-        while os.path.isfile(path):
-            path = filename + "_" + str(i) + extension
-            i+=1
-        return path
     
     @staticmethod
     def make_list(x):
@@ -231,9 +254,11 @@ class InstrumentGroup():
             Data is written to a file.
         """
         try:
-            filename = self.check_filename_duplicate(filename)
-            with open(filename, 'w', newline='') as f:
-                print(f"Writing data to {filename}")
+            with ConditionalFileWriter(self.filename,self.measure) as f:
+                if self.measure:
+                    print(f"Writing data to {filename}")
+                else:
+                    print("Not writing data to file")
                 writer = csv.writer(f)
                 writer.writerows([[str(ctime())],[f"Ramp {controller} T"],[comment],["[DATA]"]])
                 headers = self.get_headers()
@@ -415,7 +440,6 @@ class InstrumentGroup():
             Data is written to a file.
         """
         try:
-            filename = self.check_filename_duplicate(filename)
             probe_heater=self.make_list(probe_heater)
             VTI_heater=self.make_list(VTI_heater)
             if len(probe_heater)==1:
@@ -425,7 +449,11 @@ class InstrumentGroup():
             if len(probe_heater)!=len(VTI_heater):
                     print("WARNING: Probe and VTI heater lists area a different length")
 
-            with open(filename, 'w', newline='') as f:
+            with ConditionalFileWriter(self.filename,self.measure) as f:
+                if self.measure:
+                    print(f"Writing data to {filename}")
+                else:
+                    print("Not writing data to file")
                 print(f"Writing data to {filename}")
                 print("Ramping heaters")
                 writer = csv.writer(f)
@@ -480,8 +508,11 @@ class InstrumentGroup():
             Data is written to a file.
         """
         try:
-            filename = self.check_filename_duplicate(filename)
-            with open(filename, 'w', newline='') as f:
+            with ConditionalFileWriter(self.filename,self.measure) as f:
+                if self.measure:
+                    print(f"Writing data to {filename}")
+                else:
+                    print("Not writing data to file")
                 print(f"Writing data to {filename}")
                 writer = csv.writer(f)
                 writer.writerows([[str(ctime())],[f"Ramp magnetic field"],[comment],["[DATA]"]])
@@ -558,8 +589,11 @@ class InstrumentGroup():
             print("Gate setpoints exceed 250 V")
             return
         try:
-            filename = self.check_filename_duplicate(filename)
-            with open(filename, 'w', newline='') as f:
+            with ConditionalFileWriter(self.filename,self.measure) as f:
+                if self.measure:
+                    print(f"Writing data to {filename}")
+                else:
+                    print("Not writing data to file")
                 print(f"Writing data to {filename}")
                 print("Setting gate voltages")
                 writer = csv.writer(f)
@@ -633,8 +667,11 @@ class InstrumentGroup():
             Data is written to a file.
         """
         try:
-            filename = self.check_filename_duplicate(filename)
-            with open(filename, 'w', newline='') as f:
+            with ConditionalFileWriter(self.filename,self.measure) as f:
+                if self.measure:
+                    print(f"Writing data to {filename}")
+                else:
+                    print("Not writing data to file")
                 print(f"Writing data to {filename}")
                 print("Performing IV measurement")
                 writer = csv.writer(f)
