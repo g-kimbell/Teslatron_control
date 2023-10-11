@@ -5,10 +5,10 @@ import csv
 
 class InstrumentGroup():
     """A class for controlling a group of instruments and recording data."""
-    def __init__(self, voltmeters, sourcemeters, Vsourcemeters, iTC, iPS):
+    def __init__(self, **kwargs):
         """Initializes the InstrumentGroup class.
         
-        Parameters
+        Keyword Arguments
         ----------
         voltmeters : list of tuples
             A list of tuples containing the name and voltmeter object for each
@@ -28,16 +28,20 @@ class InstrumentGroup():
         iPS : MercuryiPS object
             An instance of the MercuryiPS class, the magnet power supply for the
             Teslatron system.
+        lakeshore: Lakeshore object
+            An instance of the Lakeshore class, for additional temperature 
+            measurement.
         
         Returns
         -------
         None
         """
-        self.voltmeters = voltmeters
-        self.sourcemeters = sourcemeters
-        self.Vsourcemeters = Vsourcemeters
-        self.iTC = iTC
-        self.iPS = iPS
+        self.voltmeters = kwargs.get("voltmeters", [])
+        self.sourcemeters = kwargs.get("sourcemeters", [])
+        self.Vsourcemeters = kwargs.get("Vsourcemeters", [])
+        self.iTC = kwargs.get("iTC", None)
+        self.iPS = kwargs.get("iPS", None)
+        self.lakeshore = kwargs.get("lakeshore", None)
 
     def get_headers(self):
         """Returns a list of headers for the data file"""
@@ -46,6 +50,8 @@ class InstrumentGroup():
             headers += ["T_probe (K)", "T_probe_setpoint (K)", "T_probe_ramp_rate (K/min)", 
                         "heater_probe (%)", "T_VTI (K)", "T_VTI_setpoint (K)", "T_VTI_ramp_rate (K/min)", 
                         "heater_VTI (%)","Pressure (mB)","Needlevalve"]
+        if self.lakeshore:
+            headers += ["T_sample (K)"]
         if self.iPS:
             headers += ["B (T)", "B_setpoint (T)", "B_ramp_rate (T/min)"]
         for name,sourcemeter in self.sourcemeters:
@@ -72,19 +78,21 @@ class InstrumentGroup():
             voltmeter.start_voltage_measurement()
         if self.iTC:
             data += [self.iTC.get_probe_temp(),
-                          self.iTC.get_probe_setpoint(),
-                          self.iTC.get_probe_ramp_rate(),
-                          self.iTC.get_probe_heater(),
-                          self.iTC.get_VTI_temp(),
-                          self.iTC.get_VTI_setpoint(),
-                          self.iTC.get_VTI_ramp_rate(),
-                          self.iTC.get_VTI_heater(),
-                          self.iTC.get_pressure(),
-                          self.iTC.get_needlevalve()]
+                     self.iTC.get_probe_setpoint(),
+                     self.iTC.get_probe_ramp_rate(),
+                     self.iTC.get_probe_heater(),
+                     self.iTC.get_VTI_temp(),
+                     self.iTC.get_VTI_setpoint(),
+                     self.iTC.get_VTI_ramp_rate(),
+                     self.iTC.get_VTI_heater(),
+                     self.iTC.get_pressure(),
+                     self.iTC.get_needlevalve()]
+        if self.lakeshore:
+            data += [self.lakeshore.get_temperature()]
         if self.iPS:
             data += [self.iPS.get_field(),
-                           self.iPS.get_field_setpoint(),
-                           self.iPS.get_field_sweep_rate()]
+                     self.iPS.get_field_setpoint(),
+                     self.iPS.get_field_sweep_rate()]
         for name,sourcemeter in self.sourcemeters:
             Is += [sourcemeter.get_current()]
         data += Is
