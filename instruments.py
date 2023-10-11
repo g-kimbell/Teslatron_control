@@ -319,5 +319,5 @@ class Lakeshore(Instrument):
             response = self.query('KRDG? B')
         else:
             raise ValueError('Channel must be A or B')
-        T = float(response.split(':')[-1][:-1])
+        T = float(response)
         return T
