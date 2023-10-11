@@ -311,13 +311,13 @@ class MercuryiTC(Mercury):
         self.query(f'SET:DEV:DB5.P1:PRES:LOOP:FSET:{percentage}')
         return
     
-    class Lakeshore(Instrument):
-        def get_temp(self,channel='A'):
-            if channel=='A':
-                response = self.query('KRDG? A')
-            elif channel=='B':
-                response = self.query('KRDG? B')
-            else:
-                raise ValueError('Channel must be A or B')
-            T = float(response.split(':')[-1][:-1])
-            return T
+class Lakeshore(Instrument):
+    def get_temp(self,channel='A'):
+        if channel=='A':
+            response = self.query('KRDG? A')
+        elif channel=='B':
+            response = self.query('KRDG? B')
+        else:
+            raise ValueError('Channel must be A or B')
+        T = float(response.split(':')[-1][:-1])
+        return T
