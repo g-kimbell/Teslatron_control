@@ -6,10 +6,10 @@ import io
 
 class ConditionalFileWriter:
     def __init__(self, filename, should_write):
-        filename,extension = os.path.splitext(path)
+        name,extension = os.path.splitext(filename)
         i=1
-        while os.path.isfile(path):
-            path = filename + "_" + str(i) + extension
+        while os.path.isfile(filename):
+            filename = name + "_" + str(i) + extension
             i+=1
         self.filename = filename
         self.should_write = should_write
@@ -122,7 +122,7 @@ class InstrumentGroup():
                      self.iTC.get_pressure(),
                      self.iTC.get_needlevalve()]
         if self.lakeshore:
-            data += [self.lakeshore.get_temperature()]
+            data += [self.lakeshore.get_temp()]
         if self.iPS:
             data += [self.iPS.get_field(),
                      self.iPS.get_field_setpoint(),
