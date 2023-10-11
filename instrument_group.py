@@ -74,7 +74,7 @@ class InstrumentGroup():
     def set_comment(self,comment):
         self.comment = comment
     
-    def dont_measure(self,measure):
+    def dont_measure(self):
         self.measure = False
 
     def get_headers(self):
@@ -168,7 +168,7 @@ class InstrumentGroup():
         else:
             return [x]
         
-    def measure_until_interrupted(self,filename,timeout_hours=18,comment=" "):
+    def measure_until_interrupted(self,timeout_hours=18):
         """Measures data until the user interrupts the measurement with Ctrl+C, 
         stop, or the timeout is reached.
         
@@ -190,12 +190,14 @@ class InstrumentGroup():
         try:
             time0 = time()
             timeout=timeout_hours*3600
-            filename = self.check_filename_duplicate(filename)
-            with open(filename, 'w', newline='') as f:
-                print(f"Writing data to {filename}")
+            with ConditionalFileWriter(self.filename,self.measure) as f:
+                if self.measure:
+                    print(f"Writing data to {self.filename}")
+                else:
+                    print("Not writing data to file")
                 print("Measuring continuously")
                 writer = csv.writer(f)
-                writer.writerows([[str(ctime())],["Continuous measurement"],[comment],["[DATA]"]])
+                writer.writerows([[str(ctime())],["Continuous measurement"],[self.comment],["[DATA]"]])
                 headers = self.get_headers()
                 writer.writerows([headers])
                 measuring=True
@@ -214,7 +216,7 @@ class InstrumentGroup():
             print("User interrupted measurement")
             pass
     
-    def ramp_T(self,filename,controller,Ts,rates,threshold=0.05,base_T_threshold=0.001,timeout_hours=18,comment=" "):
+    def ramp_T(self,controller,Ts,rates,threshold=0.05,base_T_threshold=0.001,timeout_hours=18):
         """Ramps the temperature and records data continuously to a file.
         
         The ramp is considered complete when the temperature is within the 
@@ -256,11 +258,11 @@ class InstrumentGroup():
         try:
             with ConditionalFileWriter(self.filename,self.measure) as f:
                 if self.measure:
-                    print(f"Writing data to {filename}")
+                    print(f"Writing data to {self.filename}")
                 else:
                     print("Not writing data to file")
                 writer = csv.writer(f)
-                writer.writerows([[str(ctime())],[f"Ramp {controller} T"],[comment],["[DATA]"]])
+                writer.writerows([[str(ctime())],[f"Ramp {controller} T"],[self.comment],["[DATA]"]])
                 headers = self.get_headers()
                 writer.writerows([headers])
 
@@ -388,7 +390,7 @@ class InstrumentGroup():
             print("User interrupted measurement")
             pass
     
-    def set_T(self,filename,controller,T,**kwargs):
+    def set_T(self,controller,T,**kwargs):
         """Sets the temperature and records data continuously to a file.
         
         Parameters
@@ -409,10 +411,10 @@ class InstrumentGroup():
         None
             Data is written to a file.
         """
-        self.ramp_T(filename,controller,T,0,**kwargs)
+        self.ramp_T(controller,T,0,**kwargs)
         return
     
-    def ramp_heater(self,filename,probe_heater,VTI_heater,wait=0.1,comment=" "):
+    def ramp_heater(self,probe_heater,VTI_heater,wait=0.1):
         """Ramps the heaters and records one datapoint per setpoint to a file.
 
         The heater power is iterated through the list of setpoints and the 
@@ -451,13 +453,12 @@ class InstrumentGroup():
 
             with ConditionalFileWriter(self.filename,self.measure) as f:
                 if self.measure:
-                    print(f"Writing data to {filename}")
+                    print(f"Writing data to {self.filename}")
                 else:
                     print("Not writing data to file")
-                print(f"Writing data to {filename}")
                 print("Ramping heaters")
                 writer = csv.writer(f)
-                writer.writerows([[str(ctime())],[f"Set Vg"],[comment],["[DATA]"]])
+                writer.writerows([[str(ctime())],[f"Set Vg"],[self.comment],["[DATA]"]])
                 headers = self.get_headers()
                 writer.writerows([headers])
 
@@ -476,7 +477,7 @@ class InstrumentGroup():
             pass
 
     
-    def ramp_B(self,filename,Bs,rates,threshold=0.005,timeout_hours=18,comment=" "):
+    def ramp_B(self,Bs,rates,threshold=0.005,timeout_hours=18):
         """Ramps the magnetic field and records data continuously to a file.
 
         The ramp is considered complete when the magnetic field is within the
@@ -510,12 +511,11 @@ class InstrumentGroup():
         try:
             with ConditionalFileWriter(self.filename,self.measure) as f:
                 if self.measure:
-                    print(f"Writing data to {filename}")
+                    print(f"Writing data to {self.filename}")
                 else:
                     print("Not writing data to file")
-                print(f"Writing data to {filename}")
                 writer = csv.writer(f)
-                writer.writerows([[str(ctime())],[f"Ramp magnetic field"],[comment],["[DATA]"]])
+                writer.writerows([[str(ctime())],[f"Ramp magnetic field"],[self.comment],["[DATA]"]])
                 headers = self.get_headers()
                 writer.writerows([headers])
 
@@ -560,7 +560,7 @@ class InstrumentGroup():
             print("User interrupted measurement")
             pass
 
-    def set_Vg(self,filename,Vgs,compliance=5e-7,wait=0.1,comment=" "):
+    def set_Vg(self,Vgs,compliance=5e-7,wait=0.1):
         """
         Sets the gate voltage and records one datapoint per setpoint to a file.
         
@@ -591,13 +591,12 @@ class InstrumentGroup():
         try:
             with ConditionalFileWriter(self.filename,self.measure) as f:
                 if self.measure:
-                    print(f"Writing data to {filename}")
+                    print(f"Writing data to {self.filename}")
                 else:
                     print("Not writing data to file")
-                print(f"Writing data to {filename}")
                 print("Setting gate voltages")
                 writer = csv.writer(f)
-                writer.writerows([[str(ctime())],[f"Set Vg"],[comment],["[DATA]"]])
+                writer.writerows([[str(ctime())],[f"Set Vg"],[self.comment],["[DATA]"]])
                 headers = self.get_headers()
                 writer.writerows([headers])
 
@@ -643,7 +642,7 @@ class InstrumentGroup():
         else:
             print(f"Current setpoint {I} A is larger than max 1e-4 A")
     
-    def perform_IV(self,filename,Is,compliance=5,wait=0.1,comment=" "):
+    def perform_IV(self,Is,compliance=5,wait=0.1):
         """Changes the current, records one datapoint per setpoint to a file.
         
         Parameters
@@ -669,13 +668,12 @@ class InstrumentGroup():
         try:
             with ConditionalFileWriter(self.filename,self.measure) as f:
                 if self.measure:
-                    print(f"Writing data to {filename}")
+                    print(f"Writing data to {self.filename}")
                 else:
                     print("Not writing data to file")
-                print(f"Writing data to {filename}")
                 print("Performing IV measurement")
                 writer = csv.writer(f)
-                writer.writerows([[str(ctime())],[f"Measure IV"],[comment],["[DATA]"]])
+                writer.writerows([[str(ctime())],[f"Measure IV"],[self.comment],["[DATA]"]])
                 headers = self.get_headers()
                 writer.writerows([headers])
                 
