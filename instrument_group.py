@@ -84,8 +84,6 @@ class InstrumentGroup():
             headers += ["T_probe (K)", "T_probe_setpoint (K)", "T_probe_ramp_rate (K/min)", 
                         "heater_probe (%)", "T_VTI (K)", "T_VTI_setpoint (K)", "T_VTI_ramp_rate (K/min)", 
                         "heater_VTI (%)","Pressure (mB)","Needlevalve"]
-        if self.lakeshore:
-            headers += ["T_sample (K)"]
         if self.iPS:
             headers += ["B (T)", "B_setpoint (T)", "B_ramp_rate (T/min)"]
         for name,sourcemeter in self.sourcemeters:
@@ -100,6 +98,9 @@ class InstrumentGroup():
         for Iname,sourcemeter in self.sourcemeters:
             for Vname,voltmeter in self.voltmeters:
                 headers.append(f"R_{Iname}{Vname} (ohm)")
+        if self.lakeshore:
+            headers += ["T_sample (K)"]
+            headers += ["T_sample_err (K)"]
         return headers
 
     def read_everything(self,time0=0):
@@ -107,6 +108,7 @@ class InstrumentGroup():
         Is = []
         Vps = []
         Vns = []
+        lakeshoreT=[]
         data = [time()-time0]
         for name,voltmeter in self.voltmeters:
             voltmeter.start_voltage_measurement()
@@ -122,7 +124,9 @@ class InstrumentGroup():
                      self.iTC.get_pressure(),
                      self.iTC.get_needlevalve()]
         if self.lakeshore:
-            data += [self.lakeshore.get_temp()]
+            lakeshoreT += [self.lakeshore.get_temp(),
+                           self.lakeshore.get_temp(),
+                           self.lakeshore.get_temp()]
         if self.iPS:
             data += [self.iPS.get_field(),
                      self.iPS.get_field_setpoint(),
@@ -136,6 +140,10 @@ class InstrumentGroup():
         for name,voltmeter in self.voltmeters:
             Vps += [voltmeter.get_voltage_measurement()]
         data += Vps
+        if self.lakeshore:
+            lakeshoreT += [self.lakeshore.get_temp(),
+                           self.lakeshore.get_temp(),
+                           self.lakeshore.get_temp()]
         for name,sourcemeter in self.sourcemeters:
             sourcemeter.reverse_current()
         for name,voltmeter in self.voltmeters:
@@ -149,6 +157,12 @@ class InstrumentGroup():
                     data += [0.5*(Vp-Vn)/I]
                 except:
                     data += [np.nan]
+        if self.lakeshore:
+            lakeshoreT += [self.lakeshore.get_temp(),
+                           self.lakeshore.get_temp(),
+                           self.lakeshore.get_temp()]
+            data += [np.mean(lakeshoreT)]
+            data += [np.ptp(lakeshoreT)]
         return data
     
     def print_current_vals(self):
