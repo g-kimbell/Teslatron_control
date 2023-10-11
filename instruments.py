@@ -14,12 +14,12 @@ class Instrument():
         self.GPIB_address = GPIB_address
         self.instr = rm.open_resource(GPIB_address,read_termination='\n',write_termination='\n')
     def query(self,command):
-        logging.info(f"Query: {command}")
+        # logging.info(f"Query: {command}")
         response = self.instr.query(command)
-        logging.info(f"Response: {response}")
+        # logging.info(f"Response: {response}")
         return response
     def write(self,command):
-        logging.info(f"Write: {command}")
+        # logging.info(f"Write: {command}")
         self.instr.write(command)
     def identify(self):
         return self.query('*IDN?')
@@ -33,9 +33,9 @@ class Voltmeter(Instrument):
         self.write(':SENS:VOLT:RANG:AUTO ON')
         self.write(':SENS:FUNC "VOLT"')
     def write(self,command):
-        logging.info(f"Write: {command}")
+        # logging.info(f"Write: {command}")
         self.instr.write(command)
-        logging.info(f"Response: {self.instr.query('SYST:ERR?')}")
+        # logging.info(f"Response: {self.instr.query('SYST:ERR?')}")
     def get_voltage(self):
         return float(self.query(':READ?'))
     def start_voltage_measurement(self):
@@ -51,15 +51,15 @@ class Sourcemeter(Instrument):
         self.write('*CLS')
         self.write(':SOUR:CURR:RANG:AUTO ON')
     def write(self,command):
-        logging.info(f"Write: {command}")
+        # logging.info(f"Write: {command}")
         self.instr.write(command)
-        logging.info(f"Response: {self.instr.query('SYST:ERR?')}")
+        # logging.info(f"Response: {self.instr.query('SYST:ERR?')}")
     def set_current(self,current):
         self.write(f'SOUR:CURR {current:.12f}')
     def get_current(self):
         status=int(self.query('STAT:MEAS:COND?'))
         if status & 8 == 8: # bit 3 on status register = compliance
-            logging.warning('Current hit compliance')
+            # logging.warning('Current hit compliance')
             I = np.nan
         else:
             I = float(self.query('SOUR:CURR?'))
@@ -91,9 +91,9 @@ class VSourcemeter(Instrument):
         self.write(':SENS:CURR:RANG:AUTO ON')
         self.write(':OUTP OFF')
     def write(self,command):
-        logging.info(f"Write: {command}")
+        # logging.info(f"Write: {command}")
         self.instr.write(command)
-        logging.info(f"Response: {self.instr.query('SYST:ERR?')}")
+        # logging.info(f"Response: {self.instr.query('SYST:ERR?')}")
     def turn_on(self):
         self.write('OUTP ON')
     def turn_off(self):
@@ -118,21 +118,21 @@ class VSourcemeter(Instrument):
 
 class Mercury(Instrument):
     def query(self,command):
-        logging.info(f'Query: {command}')
+        # logging.info(f'Query: {command}')
         response = self.instr.query(command)
-        logging.info(f'Response: {response}')
-        if response.endswith('INVALID'):
-            logging.error(f'Invalid command: {command}')
+        # logging.info(f'Response: {response}')
+        # if response.endswith('INVALID'):
+            # logging.error(f'Invalid command: {command}')
         return response
     def write(self,command):
         # workaround: for Mercury controllers write commands leave an output in the buffer
         # this would lead to an erroneous response to the next query command
         # so we only use query commands
-        logging.info(f"Write: {command}")
+        # logging.info(f"Write: {command}")
         response = self.instr.query(command)
-        logging.info(f'Response: {response}')
-        if response.endswith('INVALID'):
-            logging.error(f'Invalid command: {command}')
+        # logging.info(f'Response: {response}')
+        # if response.endswith('INVALID'):
+            # logging.error(f'Invalid command: {command}')
     def get_config(self):
         return self.query('READ:SYS:CAT')
 
