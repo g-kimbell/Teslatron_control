@@ -77,8 +77,7 @@ class Sourcemeter(Instrument):
 
 class VSourcemeter(Instrument):
     # works with Keithley 2410
-    def __init__(self,GPIB_address,**kwargs):
-        super().__init__(GPIB_address,**kwargs)
+    def reset(self):
         self.write('*RST')
         self.write('*CLS')
         self.write(':FORM:ELEM VOLT,CURR')
