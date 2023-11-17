@@ -140,12 +140,12 @@ class InstrumentGroup():
         for name,voltmeter in self.voltmeters:
             Vps += [voltmeter.get_voltage_measurement()]
         data += Vps
+        for name,sourcemeter in self.sourcemeters:
+            sourcemeter.reverse_current()
         if self.lakeshore:
             lakeshoreT += [self.lakeshore.get_temp(),
                            self.lakeshore.get_temp(),
                            self.lakeshore.get_temp()]
-        for name,sourcemeter in self.sourcemeters:
-            sourcemeter.reverse_current()
         for name,voltmeter in self.voltmeters:
             voltmeter.start_voltage_measurement()
         for name,voltmeter in self.voltmeters:
@@ -157,6 +157,8 @@ class InstrumentGroup():
                     data += [0.5*(Vp-Vn)/I]
                 except:
                     data += [np.nan]
+        for name,sourcemeter in self.sourcemeters:
+            sourcemeter.reverse_current()
         if self.lakeshore:
             lakeshoreT += [self.lakeshore.get_temp(),
                            self.lakeshore.get_temp(),
@@ -573,7 +575,11 @@ class InstrumentGroup():
         except KeyboardInterrupt:
             print("User interrupted measurement")
             pass
-
+    
+    def reset_Vg(self):
+        for _,Vsourcemeter in self.Vsourcemeters:
+            Vsourcemeter.reset()
+    
     def set_Vg(self,Vgs,compliance=5e-7,wait=0.1):
         """
         Sets the gate voltage and records one datapoint per setpoint to a file.
@@ -647,16 +653,25 @@ class InstrumentGroup():
         -------
         None
         """
-        print(f"Setting current to {I}, compliance {compliance}")
-        if abs(I)<=1e-4:
-            for _,sourcemeter in self.sourcemeters:
-                sourcemeter.set_compliance(compliance)
-                sourcemeter.set_current(I)
-                sourcemeter.turn_on()
-        else:
+        I = self.make_list(I)
+        if max(I) >= 1e-4:
             print(f"Current setpoint {I} A is larger than max 1e-4 A")
+            return
+        compliance = self.make_list(compliance)
+        if len(I)==1:
+            I=I*len(self.sourcemeters)
+        if len(compliance)==1:
+            compliance=compliance*len(I)
+        if len(I) != len(compliance):
+            print("Warning: length of B and rate lists are not equal")
+        
+        print(f"Setting current to {I}, compliance {compliance}")
+        for i in range(len(self.sourcemeters)):
+            self.sourcemeters[i][1].set_compliance(compliance[i])
+            self.sourcemeters[i][1].set_current(I[i])
+            self.sourcemeters[i][1].turn_on()
     
-    def perform_IV(self,Is,compliance=5,wait=0.1):
+    def perform_IV(self,Is,compliance=5,wait=0.01):
         """Changes the current, records one datapoint per setpoint to a file.
         
         Parameters
@@ -701,10 +716,10 @@ class InstrumentGroup():
                     if abs(I)<=1e-4:
                         for _,sourcemeter in self.sourcemeters:
                             sourcemeter.set_current(I)
-                            sleep(wait)
-                            data = self.read_everything(time0=time0)
-                            writer.writerows([data])
-                            f.flush()
+                        sleep(wait)
+                        data = self.read_everything(time0=time0)
+                        writer.writerows([data])
+                        f.flush()
                     else:
                         print(f"Current setpoint {I} A is larger than max 1e-4 A")
                 print("Finished IV measurement")
