@@ -55,7 +55,7 @@ class Sourcemeter(Instrument):
         self.instr.write(command)
         # logging.info(f"Response: {self.instr.query('SYST:ERR?')}")
     def set_current(self,current):
-        self.write(f'SOUR:CURR {current:.12f}')
+        self.write(f'SOUR:CURR {current:.9g}')
     def get_current(self):
         status=int(self.query('STAT:MEAS:COND?'))
         if status & 8 == 8: # bit 3 on status register = compliance
@@ -73,12 +73,11 @@ class Sourcemeter(Instrument):
     def get_complicance(self):
         return float(self.query('SOUR:CURR:COMP?'))
     def set_compliance(self,compliance):
-        self.write(f'SOUR:CURR:COMP {compliance:.6f}')
+        self.write(f'SOUR:CURR:COMP {compliance:.9g}')
 
 class VSourcemeter(Instrument):
     # works with Keithley 2410
-    def __init__(self,GPIB_address,**kwargs):
-        super().__init__(GPIB_address,**kwargs)
+    def reset(self):
         self.write('*RST')
         self.write('*CLS')
         self.write(':FORM:ELEM VOLT,CURR')
@@ -99,7 +98,7 @@ class VSourcemeter(Instrument):
     def turn_off(self):
         self.write('OUTP OFF')
     def set_voltage(self,voltage):
-        self.write(f'SOUR:VOLT {voltage:.6f}')
+        self.write(f'SOUR:VOLT {voltage:.9g}')
     def get_voltage_and_Ileak(self):
         # check whether output is on
         if int(self.query('OUTP?')) == 1:
@@ -114,7 +113,7 @@ class VSourcemeter(Instrument):
         _,Ileak = self.get_voltage_and_Ileak()
         return Ileak
     def set_compliance(self,compliance):
-        self.write(f'SENS:CURR:PROT {compliance:.6f}')
+        self.write(f'SENS:CURR:PROT {compliance:.9g}')
 
 class Mercury(Instrument):
     def query(self,command):
@@ -178,9 +177,9 @@ class MercuryiPS(Mercury):
                 self.query('SET:DEV:GRPZ:PSU:ACTN:HOLD')
     def set_field(self,B,rate): # in T
         self.set_output(2)
-        self.query(f'SET:DEV:GRPZ:PSU:SIG:RFST:{rate}')
+        self.query(f'SET:DEV:GRPZ:PSU:SIG:RFST:{rate:.9g}')
         time.sleep(0.1)
-        self.query(f'SET:DEV:GRPZ:PSU:SIG:FSET:{B}')
+        self.query(f'SET:DEV:GRPZ:PSU:SIG:FSET:{B:.9g}')
         time.sleep(0.1)
         self.set_output(1)
     
@@ -213,7 +212,7 @@ class MercuryiTC(Mercury):
         return T_K
     def set_probe_temp(self,temp):
         self.query(f'SET:DEV:DB8.T1:TEMP:LOOP:RENA:OFF')#turn off ramp
-        self.query(f'SET:DEV:DB8.T1:TEMP:LOOP:TSET:{temp}')#set temp
+        self.query(f'SET:DEV:DB8.T1:TEMP:LOOP:TSET:{temp:.9g}')#set temp
         self.query(f'SET:DEV:DB8.T1:TEMP:LOOP:ENAB:ON')#turn on PID loop
         
     def get_probe_setpoint(self):
@@ -225,8 +224,8 @@ class MercuryiTC(Mercury):
         dTdt_Kpermin = float(response.split(':')[-1][:-3])
         return dTdt_Kpermin
     def ramp_probe_temp(self,temp,rate):
-        self.query(f'SET:DEV:DB8.T1:TEMP:LOOP:RSET:{rate}')
-        self.query(f'SET:DEV:DB8.T1:TEMP:LOOP:TSET:{temp}')
+        self.query(f'SET:DEV:DB8.T1:TEMP:LOOP:RSET:{rate:.9g}')
+        self.query(f'SET:DEV:DB8.T1:TEMP:LOOP:TSET:{temp:.9g}')
         self.query(f'SET:DEV:DB8.T1:TEMP:LOOP:ENAB:ON')#turn on loop
         self.query(f'SET:DEV:DB8.T1:TEMP:LOOP:RENA:ON')#turn on ramp
         return
@@ -235,7 +234,7 @@ class MercuryiTC(Mercury):
         H_percentage = float(response.split(':')[-1])
         return H_percentage
     def set_probe_heater(self,heater_percentage):
-        self.query(f'SET:DEV:DB8.T1:TEMP:LOOP:HSET:{heater_percentage}')#automatically turns off loop
+        self.query(f'SET:DEV:DB8.T1:TEMP:LOOP:HSET:{heater_percentage:.9g}')#automatically turns off loop
         return
     def ramp_probe_heater(self,start_percentage,end_percentage,rate):
         # This would need to run asynchroneously. Might be more sensible to just synchronise this with measurements.
@@ -253,7 +252,7 @@ class MercuryiTC(Mercury):
         return T_K
     def set_VTI_temp(self,temp):
         self.query(f'SET:DEV:MB1.T1:TEMP:LOOP:RENA:OFF')#turn off ramp
-        self.query(f'SET:DEV:MB1.T1:TEMP:LOOP:TSET:{temp}')
+        self.query(f'SET:DEV:MB1.T1:TEMP:LOOP:TSET:{temp:.9g}')
         self.query(f'SET:DEV:MB1.T1:TEMP:LOOP:ENAB:ON')#turn on PID loop
         return
     def get_VTI_setpoint(self):
@@ -265,8 +264,8 @@ class MercuryiTC(Mercury):
         dTdt_Kpermin = float(response.split(':')[-1][:-3])
         return dTdt_Kpermin
     def ramp_VTI_temp(self,temp,rate):
-        self.query(f'SET:DEV:MB1.T1:TEMP:LOOP:RSET:{rate}')
-        self.query(f'SET:DEV:MB1.T1:TEMP:LOOP:TSET:{temp}')
+        self.query(f'SET:DEV:MB1.T1:TEMP:LOOP:RSET:{rate:.9g}')
+        self.query(f'SET:DEV:MB1.T1:TEMP:LOOP:TSET:{temp:.9g}')
         self.query(f'SET:DEV:MB1.T1:TEMP:LOOP:ENAB:ON')#turn on loop
         self.query(f'SET:DEV:MB1.T1:TEMP:LOOP:RENA:ON')#turn on ramp
         return
@@ -275,7 +274,7 @@ class MercuryiTC(Mercury):
         H_percentage = float(response.split(':')[-1])
         return H_percentage
     def set_VTI_heater(self,heater_percentage):
-        self.query(f'SET:DEV:MB1.T1:TEMP:LOOP:HSET:{heater_percentage}')#automatically turns off loop
+        self.query(f'SET:DEV:MB1.T1:TEMP:LOOP:HSET:{heater_percentage:.9g}')#automatically turns off loop
         return
     def ramp_VTI_heater(self,start_percentage,end_percentage,rate):
         # This would need to run asynchroneously. Might be more sensible to just synchronise this with measurements.
@@ -301,14 +300,14 @@ class MercuryiTC(Mercury):
         # This doesn't work, I think it is a bug with the controller board.
         # It uses the code given in the manual. Other programs (LabView, MATLAB) also can't access pressure commands.
         self.query(f'SET:DEV:DB5.P1:PRES:LOOP:ENAB:ON')#turn on loop
-        self.query(f'SET:DEV:DB5.P1:PRES:LOOP:TSET:{pressure}')
+        self.query(f'SET:DEV:DB5.P1:PRES:LOOP:TSET:{pressure:.9g}')
         return
     def get_needlevalve(self):
         response = self.query('READ:DEV:DB5.P1:PRES:LOOP:FSET?')
         nv_percentage = float(response.split(':')[-1])
         return nv_percentage
     def set_needlevalve(self,percentage):
-        self.query(f'SET:DEV:DB5.P1:PRES:LOOP:FSET:{percentage}')
+        self.query(f'SET:DEV:DB5.P1:PRES:LOOP:FSET:{percentage:.9g}')
         return
     
 class Lakeshore(Instrument):
