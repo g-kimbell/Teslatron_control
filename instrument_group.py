@@ -102,14 +102,21 @@ class InstrumentGroup():
             headers += ["T_sample (K)"]
             headers += ["T_sample_err (K)"]
         return headers
-
+    
+    @staticmethod
+    def round_to_significant_figures(num, sig_figs):
+        if num != 0:
+            return round(num, -int(np.floor(np.log10(abs(num))) + (1 - sig_figs)))
+        else:
+            return 0  # Can't take the log of 0
+    
     def read_everything(self,time0=0):
         """Collects data from all instruments and returns a list"""
         Is = []
         Vps = []
         Vns = []
         lakeshoreT=[]
-        data = [time()-time0]
+        data = [round(time()-time0,2)]
         for name,voltmeter in self.voltmeters:
             voltmeter.start_voltage_measurement()
         if self.iTC:
@@ -154,15 +161,15 @@ class InstrumentGroup():
         for I in Is:
             for Vp,Vn in zip(Vps,Vns):
                 try:
-                    data += [0.5*(Vp-Vn)/I]
+                    data += [self.round_to_significant_figures(0.5*(Vp-Vn)/I,9)]
                 except:
                     data += [np.nan]
         if self.lakeshore:
             lakeshoreT += [self.lakeshore.get_temp(),
                            self.lakeshore.get_temp(),
                            self.lakeshore.get_temp()]
-            data += [np.mean(lakeshoreT)]
-            data += [np.ptp(lakeshoreT)]
+            data += [round(np.mean(lakeshoreT),4)]
+            data += [round(np.ptp(lakeshoreT),4)]
         return data
     
     def print_current_vals(self):
