@@ -237,7 +237,7 @@ class InstrumentGroup():
             return
         except KeyboardInterrupt:
             print("User interrupted measurement")
-            pass
+            raise
     
     def ramp_T(self,controller,Ts,rates,threshold=0.05,base_T_threshold=0.001,timeout_hours=18):
         """Ramps the temperature and records data continuously to a file.
@@ -411,7 +411,7 @@ class InstrumentGroup():
             return
         except KeyboardInterrupt:
             print("User interrupted measurement")
-            pass
+            raise
     
     def set_T(self,controller,T,**kwargs):
         """Sets the temperature and records data continuously to a file.
@@ -497,7 +497,7 @@ class InstrumentGroup():
             return
         except KeyboardInterrupt:
             print("User interrupted measurement")
-            pass
+            raise
 
     
     def ramp_B(self,Bs,rates,threshold=0.005,timeout_hours=18):
@@ -581,7 +581,7 @@ class InstrumentGroup():
             return
         except KeyboardInterrupt:
             print("User interrupted measurement")
-            pass
+            raise
     
     def reset_Vg(self):
         for _,Vsourcemeter in self.Vsourcemeters:
@@ -644,7 +644,7 @@ class InstrumentGroup():
             return
         except KeyboardInterrupt:
             print("User interrupted measurement")
-            pass
+            raise
 
     def set_current(self,I,compliance=5):
         """Sets the current without recording data.
@@ -733,4 +733,4 @@ class InstrumentGroup():
             return
         except KeyboardInterrupt:
             print("User interrupted measurement")
-            pass
+            raise
