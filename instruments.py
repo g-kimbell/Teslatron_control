@@ -56,13 +56,13 @@ class Sourcemeter(Instrument):
         # logging.info(f"Response: {self.instr.query('SYST:ERR?')}")
     def set_current(self,current):
         self.write(f'SOUR:CURR {current:.9g}')
-    def get_current(self):
-        status=int(self.query('STAT:MEAS:COND?'))
-        if status & 8 == 8: # bit 3 on status register = compliance
-            # logging.warning('Current hit compliance')
-            I = np.nan
-        else:
-            I = float(self.query('SOUR:CURR?'))
+    def get_current(self,nanforcompliance=True):
+        I = float(self.query('SOUR:CURR?'))
+        if nanforcompliance:
+            status=int(self.query('STAT:MEAS:COND?'))
+            if status & 8 == 8: # bit 3 on status register = compliance
+                # logging.warning('Current hit compliance')
+                I = np.nan
         return I
     def reverse_current(self):
         self.set_current(-float(self.query('SOUR:CURR?')))
