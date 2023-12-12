@@ -1,5 +1,6 @@
 from time import ctime, time, sleep
 import numpy as np
+import pyvisa
 import os
 import csv
 import io
@@ -174,6 +175,37 @@ class InstrumentGroup():
             data += [round(np.ptp(lakeshoreT),4)]
         return data
     
+    def flush_and_reset(self):
+        """ Flush buffers for mercury controllers, reset current to positive value"""
+        for name,sourcemeter in self.sourcemeters:
+            sourcemeter.set_current(abs(sourcemeter.get_current(nanforcompliance=False)))
+        if self.iTC:
+            print("Flushing iTC buffer")
+            flushed=False
+            while not flushed:
+                try:
+                    self.iTC.timeout = 500
+                    self.iTC.query("")
+                except pyvisa.VisaIOError as err:
+                    if err.abbreviation=='VI_ERROR_TMO':
+                        flushed=True
+                        pass
+                    else:
+                        raise
+        if self.iPS:
+            print("Flushing iTC buffer")
+            flushed=False
+            while not flushed:
+                try:
+                    self.iPS.timeout = 500
+                    self.iPS.query("")
+                except pyvisa.VisaIOError as err:
+                    if err.abbreviation=='VI_ERROR_TMO':
+                        flushed=True
+                        pass
+                    else:
+                        raise
+
     def print_current_vals(self):
         """Make one measurement from every instrument and print the values"""
         headers=self.get_headers()
@@ -237,6 +269,7 @@ class InstrumentGroup():
             return
         except KeyboardInterrupt:
             print("User interrupted measurement")
+            self.flush_and_reset()
             raise
     
     def ramp_T(self,controller,Ts,rates,threshold=0.05,base_T_threshold=0.001,timeout_hours=18):
@@ -411,6 +444,7 @@ class InstrumentGroup():
             return
         except KeyboardInterrupt:
             print("User interrupted measurement")
+            self.flush_and_reset()
             raise
     
     def set_T(self,controller,T,**kwargs):
@@ -497,6 +531,7 @@ class InstrumentGroup():
             return
         except KeyboardInterrupt:
             print("User interrupted measurement")
+            self.flush_and_reset()
             raise
 
     
@@ -581,6 +616,7 @@ class InstrumentGroup():
             return
         except KeyboardInterrupt:
             print("User interrupted measurement")
+            self.flush_and_reset()
             raise
     
     def reset_Vg(self):
@@ -644,6 +680,7 @@ class InstrumentGroup():
             return
         except KeyboardInterrupt:
             print("User interrupted measurement")
+            self.flush_and_reset()
             raise
 
     def set_current(self,I,compliance=5):
@@ -733,4 +770,5 @@ class InstrumentGroup():
             return
         except KeyboardInterrupt:
             print("User interrupted measurement")
+            self.flush_and_reset()
             raise
