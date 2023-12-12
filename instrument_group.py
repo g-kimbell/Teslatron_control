@@ -683,7 +683,7 @@ class InstrumentGroup():
             self.flush_and_reset()
             raise
 
-    def set_current(self,I,compliance=5):
+    def set_current(self,I,compliance=5,on=[True]):
         """Sets the current without recording data.
 
         Parameters
@@ -702,18 +702,26 @@ class InstrumentGroup():
             print(f"Current setpoint {I} A is larger than max 1e-4 A")
             return
         compliance = self.make_list(compliance)
+        on = self.make_list(on)
         if len(I)==1:
             I=I*len(self.sourcemeters)
         if len(compliance)==1:
             compliance=compliance*len(I)
         if len(I) != len(compliance):
-            print("Warning: length of B and rate lists are not equal")
+            print("Warning: length of I and compliance lists are not equal")
+        if len(on)==1:
+            on=on*len(I)
+        if len(I) != len(on):
+            print("Warning: length of I and on/off lists are not equal")
         
         print(f"Setting current to {I}, compliance {compliance}")
         for i in range(len(self.sourcemeters)):
             self.sourcemeters[i][1].set_compliance(compliance[i])
             self.sourcemeters[i][1].set_current(I[i])
-            self.sourcemeters[i][1].turn_on()
+            if on[i]:
+                self.sourcemeters[i][1].turn_on()
+            else:
+                self.sourcemeters[i][1].turn_off()
     
     def perform_IV(self,Is,compliance=5,wait=0.01):
         """Changes the current, records one datapoint per setpoint to a file.
