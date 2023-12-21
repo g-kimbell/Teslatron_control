@@ -193,7 +193,7 @@ class InstrumentGroup():
                     else:
                         raise
         if self.iPS:
-            print("Flushing iTC buffer")
+            print("Flushing iPS buffer")
             flushed=False
             while not flushed:
                 try:
