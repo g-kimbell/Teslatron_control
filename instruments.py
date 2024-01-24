@@ -224,10 +224,10 @@ class MercuryiTC(Mercury):
         dTdt_Kpermin = float(response.split(':')[-1][:-3])
         return dTdt_Kpermin
     def ramp_probe_temp(self,temp,rate):
+        self.query(f'SET:DEV:DB8.T1:TEMP:LOOP:RENA:ON')#turn on ramp
         self.query(f'SET:DEV:DB8.T1:TEMP:LOOP:RSET:{rate:.9g}')
         self.query(f'SET:DEV:DB8.T1:TEMP:LOOP:TSET:{temp:.9g}')
         self.query(f'SET:DEV:DB8.T1:TEMP:LOOP:ENAB:ON')#turn on loop
-        self.query(f'SET:DEV:DB8.T1:TEMP:LOOP:RENA:ON')#turn on ramp
         return
     def get_probe_heater(self):
         response = self.query('READ:DEV:DB8.T1:TEMP:LOOP:HSET?')
@@ -264,10 +264,10 @@ class MercuryiTC(Mercury):
         dTdt_Kpermin = float(response.split(':')[-1][:-3])
         return dTdt_Kpermin
     def ramp_VTI_temp(self,temp,rate):
+        self.query(f'SET:DEV:MB1.T1:TEMP:LOOP:RENA:ON')#turn on ramp
         self.query(f'SET:DEV:MB1.T1:TEMP:LOOP:RSET:{rate:.9g}')
         self.query(f'SET:DEV:MB1.T1:TEMP:LOOP:TSET:{temp:.9g}')
         self.query(f'SET:DEV:MB1.T1:TEMP:LOOP:ENAB:ON')#turn on loop
-        self.query(f'SET:DEV:MB1.T1:TEMP:LOOP:RENA:ON')#turn on ramp
         return
     def get_VTI_heater(self):
         response = self.query('READ:DEV:MB1.T1:TEMP:LOOP:HSET?')
