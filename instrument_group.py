@@ -212,6 +212,10 @@ class InstrumentGroup():
         data=self.read_everything()
         for header,datum in zip(headers,data):
             print(f"{header}: {datum}")
+        if self.iPS:
+            print(f"PT1: {self.iPS.get_PT1_T()} K")
+            print(f"PT2: {self.iPS.get_PT2_T()} K")
+            print(f"Magnet T: {self.iPS.get_magnet_T()} K")
         return
     
     @staticmethod
@@ -342,7 +346,7 @@ class InstrumentGroup():
                             case _:
                                 raise ValueError("Invalid controller, use 'probe', 'VTI', or 'both'")
                         print(f"Setting {controller} to {T} K")
-                        min_time=120
+                        min_time=60
                     else:
                         match controller:
                             case "probe":
@@ -389,51 +393,57 @@ class InstrumentGroup():
                                 if abs(probe_T-T) < threshold:
                                     T_reached += 1
                                 else:
-                                    T_reached = 0
+                                    T_reached -= 10
                                 if abs(probe_diff) < base_T_threshold:
                                     T_stopped += 1
                                 else:
-                                    T_stopped = 0
+                                    T_stopped -= 10
+                                    if T_reached<0: # both conditions not met
+                                        T_diff_sign_change -= 5
                                 if probe_diff*prev_probe_diff<0:
-                                    T_diff_sign_change = 1
-                                else:
-                                    T_diff_sign_change = 0
+                                    T_diff_sign_change += 1
                             case "VTI":
                                 if abs(VTI_T-T) < threshold:
                                     T_reached += 1
                                 else:
-                                    T_reached = 0
+                                    T_reached = -10
                                 if abs(VTI_diff) < base_T_threshold:
                                     T_stopped += 1
                                 else:
-                                    T_stopped = 0
+                                    T_stopped -= 10
+                                    if T_reached<0: # both conditions not met
+                                        T_diff_sign_change -= 5
                                 if VTI_diff*prev_VTI_diff<0:
-                                    T_diff_sign_change = 1
-                                else:
-                                    T_diff_sign_change = 0
+                                    T_diff_sign_change += 1
                             case "both":
                                 if (abs(probe_T-T) < threshold) and (abs(VTI_T-T) < threshold):
                                     T_reached += 1
                                 else:
-                                    T_reached = 0
+                                    T_reached = -10
                                 if (abs(probe_diff) < base_T_threshold) and (abs(VTI_diff) < base_T_threshold):
                                     T_stopped += 1
                                 else:
-                                    T_stopped = 0
-                                if (probe_diff*prev_probe_diff<0) and (VTI_diff*prev_VTI_diff<0):
-                                    T_diff_sign_change = 1
-                                else:
-                                    T_diff_sign_change = 0
+                                    T_stopped -= 10
+                                    if T_reached<0: # both conditions not met
+                                        T_diff_sign_change -= 5
+                                if (probe_diff*prev_probe_diff<0) or (VTI_diff*prev_VTI_diff<0):
+                                    T_diff_sign_change += 1
+                        if T_reached<0:
+                            T_reached=0
+                        if T_stopped<0:
+                            T_stopped=0
+                        if T_diff_sign_change<0:
+                            T_diff_sign_change=0
                         prev_probe_T = probe_T
                         prev_VTI_T = VTI_T
                         prev_probe_diff = probe_diff
                         prev_VTI_diff = VTI_diff
 
-                        if (T_reached >= 30) and (T_diff_sign_change==1) and (time()-time0 > min_time):
+                        if (T_reached >= 30) and (T_diff_sign_change>=5) and (time()-time0 > min_time):
                             measuring=False
                             print(f"Finished ramping {controller} to {T} K")
                             break
-                        if (T_stopped >= 50) and (T_diff_sign_change==1) and (time()-time0 > min_time):
+                        if (T_stopped >= 50) and (T_diff_sign_change>=5) and (time()-time0 > min_time):
                             measuring=False
                             print(f"Reached base T in {controller} at {probe_T} K probe, {VTI_T} K VTI")
                             break
